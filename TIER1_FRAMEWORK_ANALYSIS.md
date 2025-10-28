@@ -619,9 +619,11 @@ runme.sh: sh $sim_pvt config.cfg ext
 └── sim_pvt.sh (stage=ext)
     └── data_extraction/extract_alt.sh
         └── For each PVT directory:
-            ├── Read: sim_tx.mt0 (measurement results)
-            ├── Parse: .measure statements
-            └── Write: extracted_data.txt
+            ├── Read: sim_tx.mt0 (measurement results from simulation)
+            ├── Parse: .measure statements from SPICE output
+            ├── Extract: Measurement data (delays, voltages, currents)
+            └── Write: extracted_data.txt (per corner/temp/voltage)
+            └── Output: Individual data files ready for sorting
 ```
 
 ### Level 5: Sorting Phase
@@ -632,7 +634,10 @@ runme.sh: sh $sim_pvt config.cfg srt
 └── sim_pvt.sh (stage=srt)
     └── Sort and organize extracted data
         ├── Group by: corner, temperature, voltage
-        └── Generate: Summary tables
+        ├── Aggregate: Data across all PVT combinations
+        ├── Generate: Individual report files (report_<corner>_<temp>_<volt>.txt)
+        └── Generate: Consolidated report (creport.txt with all results)
+        └── Output: Organized report/ directory with analysis results
 ```
 
 ### Level 6: Backup Phase
@@ -641,10 +646,29 @@ runme.sh: sh $sim_pvt config.cfg srt
 runme.sh: sh $sim_pvt config.cfg bkp
 │
 └── sim_pvt.sh (stage=bkp)
-    ├── Create: 00bkp_<timestamp>/
-    ├── Copy: All reports and data
+    ├── Create: 00bkp_<timestamp>/ directory
+    ├── Backup Structure:
+    │   ├── report/ directory
+    │   │   ├── Copy: All report_*.txt files (individual corner reports)
+    │   │   └── Copy: creport.txt (consolidated report)
+    │   └── tb_bkp/ directory
+    │       └── Copy: Testbench files (sim_tx.sp) organized by corner/temp/voltage
+    │       └── Copy: Simulation output files (.mt0, .log, .fsdb if configured)
     └── data_extraction/move.sh
         └── Organize files into backup structure
+        └── Preserve complete simulation artifacts for reproducibility
+        
+Final Output:
+  00bkp_<YYYYMMDDHHmm>/
+  ├── report/
+  │   ├── creport.txt (consolidated results across all corners)
+  │   ├── report_TT_typical_85_v1nom.txt
+  │   ├── report_FF_typical_125_v1min.txt
+  │   └── ... (84+ individual corner reports)
+  └── tb_bkp/
+      ├── typical_m40/v1nom/sim_tx.sp
+      ├── typical_85/v1nom/sim_tx.sp
+      └── ... (testbench snapshots for all simulated corners)
 ```
 
 ### Level 7: Optional User Script
@@ -670,6 +694,74 @@ config.cfg
                         └── weakpullup.lib selects appropriate subcircuit
                             └── Circuit behavior differentiates GPIO from I3C
 ```
+
+### Complete End-to-End Flow: runme.sh → creport.txt & Backup
+
+```
+User Executes: ./runme.sh
+│
+├─► STAGE 1: Generation (gen)
+│   ├─ Input: config.cfg, template/sim_tx.sp
+│   ├─ Process: gen_tb.pl creates 84 netlists (7 corners × 4 temps × 3 voltages)
+│   └─ Output: Complete PVT directory tree with sim_tx.sp in each corner/temp/volt folder
+│
+├─► STAGE 2: Simulation (run)
+│   ├─ Input: Generated sim_tx.sp files (84 netlists)
+│   ├─ Process: PrimeSim/FineSim executes SPICE simulations
+│   │   ├─ Reads: Circuit netlists (ioss3_txana_x2.sp, etc.)
+│   │   ├─ Reads: Library files (weakpullup.lib with enable/enable_i3c ← CRITICAL)
+│   │   └─ Reads: PDK models (CLN3P)
+│   └─ Output: sim_tx.mt0 (measurements), .log (simulation log), .fsdb (waveforms)
+│       └─ Generated in each corner/temp/volt directory
+│
+├─► STAGE 3: Extraction (ext)
+│   ├─ Input: sim_tx.mt0 files (84 measurement files)
+│   ├─ Process: extract_alt.sh parses .measure statements
+│   └─ Output: extracted_data.txt files with measurement results
+│       └─ Data includes: delays, resistances, voltages, currents per corner
+│
+├─► STAGE 4: Sorting (srt)
+│   ├─ Input: Extracted data files from all corners
+│   ├─ Process: Aggregate and organize by corner/temp/voltage
+│   └─ Output: 
+│       ├─ report_TT_typical_85_v1nom.txt (individual corner report)
+│       ├─ report_FF_typical_125_v1min.txt (another corner report)
+│       ├─ ... (84+ individual reports, one per simulated corner)
+│       └─ creport.txt (CONSOLIDATED REPORT - all corners aggregated)
+│
+├─► STAGE 5: Backup (bkp)
+│   ├─ Input: All reports and simulation artifacts
+│   ├─ Process: Create timestamped backup directory
+│   │   ├─ Create: 00bkp_YYYYMMDDHHmm/
+│   │   ├─ Copy reports → 00bkp_*/report/
+│   │   │   ├─ creport.txt (consolidated results)
+│   │   │   └─ report_*.txt (all individual corner reports)
+│   │   └─ Copy testbenches → 00bkp_*/tb_bkp/
+│   │       ├─ sim_tx.sp files (testbench snapshots)
+│   │       └─ .mt0 files (measurement outputs - if configured)
+│   └─ Output: Complete backup preserving all simulation artifacts
+│       └─ 00bkp_202508191157/ (example: Aug 19, 2025, 11:57 AM)
+│           ├─ report/ (45+ files: creport.txt + individual reports)
+│           └─ tb_bkp/ (testbench snapshots organized by corner/temp/voltage)
+│
+└─► STAGE 6 (Optional): User Script (usr_script)
+    ├─ Input: All generated data and reports
+    ├─ Process: Custom user-defined post-processing
+    └─ Output: Additional analysis, plots, or database updates
+
+FINAL DELIVERABLES:
+├─ report/creport.txt                    ← Consolidated analysis across all PVT corners
+├─ report/report_<corner>_<temp>_<volt>.txt  ← Individual corner results (84+ files)
+└─ 00bkp_<timestamp>/                    ← Timestamped backup for reproducibility
+    ├─ report/ (all reports backed up)
+    └─ tb_bkp/ (testbenches + mt0 files backed up)
+```
+
+**Key Points**:
+- **creport.txt**: Final consolidated report aggregating results from all 84 PVT corners
+- **mt0 files**: SPICE measurement output files, backed up in 00bkp_*/tb_bkp/ structure
+- **Timestamped backups**: Enable reproducibility and historical tracking (e.g., 00bkp_202508191157)
+- **Complete traceability**: From template → simulation → measurements → reports → backup
 
 ---
 
