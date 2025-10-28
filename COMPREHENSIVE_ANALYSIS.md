@@ -543,6 +543,494 @@ TT/typical/typical_85/v1min/sim_tx.sp, Line 52: .lib "weakpullup.lib" enable
 
 ---
 
+## 🔬 Recursive Analysis: gen_tb.pl Deep Dive
+
+### Complete Call Chain to gen_tb.pl
+
+**Full Execution Path**:
+```
+runme.sh (user entry)
+  ↓
+sim_pvt.sh config.cfg gen
+  ↓ sources:
+  ├── tb_gen/pvt_loop.sh        (defines gen_pvt_loop_seq, gen_pvt_loop_par)
+  ├── configuration/read_cfg.sh  (parses config.cfg → 15 parameters)
+  ├── configuration/read_supply.sh (reads CSV → voltage values)
+  └── configuration/read_corner.sh (reads CSV → corner lists)
+  ↓ executes:
+  gen_pvt_loop_seq() or gen_pvt_loop_par()
+    ↓ nested loops create:
+    for corner in [TT, FFG, SSG, FSG, SFG, FFAG, SSAG]
+      for extraction in [typical, cworst_CCworst_T, cbest_CCbest_T]
+        for temp in [m40, 85, 100, 125]
+          for voltage in [v1min, v1nom, v1max] (or v1*_v2*_v3* for 3-supply)
+            ↓ calls core_func():
+            perl gen_tb.pl template/sim_tx.sp \
+              $si_corner $ex_corner $temperature \
+              $vtrend_v1 $vtrend_v2 $vtrend_v3 \
+              $supply1 $supply2 $supply3 \
+              $vccmin $vccnom $vccmax \
+              $vcnmin $vcnnom $vcnmax \
+              $vccanamin $vccananom $vccanamax \
+              $vctxmin $vctxnom $vctxmax \
+              $vcc_vid \
+              $vccmin_tt_h $vccnom_tt_h $vccmax_tt_h \
+              $vccmin_tt_c $vccnom_tt_c $vccmax_tt_c \
+              $vccmin_ff_h $vccnom_ff_h $vccmax_ff_h \
+              $vccmin_ff_c $vccnom_ff_c $vccmax_ff_c \
+              $vccmin_ss_h $vccnom_ss_h $vccmax_ss_h \
+              $vccmin_ss_c $vccnom_ss_c $vccmax_ss_c \
+              > $output_path/sim_tx.sp
+```
+
+### gen_tb.pl: 571 Lines, 44 Arguments
+
+**Script Location**: `auto_pvt/ver03/tb_gen/gen_tb.pl`
+
+**Language**: Perl (pattern-based text processing optimized for template substitution)
+
+**Input Arguments** (44 total):
+```perl
+# Arguments 1-10: Core PVT parameters
+$infile        # Arg 1:  template/sim_tx.sp
+$si_corner     # Arg 2:  TT, FFG, SSG, FSG, SFG, FFAG, SSAG
+$ex_corner     # Arg 3:  typical, cworst_CCworst_T, cbest_CCbest_T
+$temperature   # Arg 4:  m40, 85, 100, 125
+$vtrend_v1     # Arg 5:  min, nom, max (1st supply)
+$vtrend_v2     # Arg 6:  min, nom, max (2nd supply)
+$vtrend_v3     # Arg 7:  min, nom, max (3rd supply)
+$supply1       # Arg 8:  vcc, vccana, vccn
+$supply2       # Arg 9:  vcctx, vccana, vccn, NA
+$supply3       # Arg 10: vccn, vccn_vcctx, NA
+
+# Arguments 11-22: Voltage values
+$vccmin, $vccnom, $vccmax           # Args 11-13
+$vcnmin, $vcnnom, $vcnmax           # Args 14-16
+$vccanamin, $vccananom, $vccanamax  # Args 17-19
+$vctxmin, $vctxnom, $vctxmax        # Args 20-22
+
+# Argument 23: VID flag
+$vcc_vid       # Arg 23: Yes/No (voltage ID support)
+
+# Arguments 24-44: VID voltage tables (21 values)
+$vccmin_tt_h, $vccnom_tt_h, $vccmax_tt_h  # Args 24-26: TT hot
+$vccmin_tt_c, $vccnom_tt_c, $vccmax_tt_c  # Args 27-29: TT cold
+$vccmin_ff_h, $vccnom_ff_h, $vccmax_ff_h  # Args 30-32: FF hot
+$vccmin_ff_c, $vccnom_ff_c, $vccmax_ff_c  # Args 33-35: FF cold
+$vccmin_ss_h, $vccnom_ss_h, $vccmax_ss_h  # Args 36-38: SS hot
+$vccmin_ss_c, $vccnom_ss_c, $vccmax_ss_c  # Args 39-41: SS cold
+```
+
+### Files Accessed by gen_tb.pl
+
+**Input Files Read**:
+1. **Template File** (`$infile`): `template/sim_tx.sp` (111 lines)
+   - Location: Passed as argument 1
+   - Format: SPICE netlist with variable placeholders
+   - Critical line: Line 52 `.lib "weakpullup.lib" enable`
+
+**Output Files Created**:
+1. **Generated Netlist** (stdout → redirected to file)
+   - Location: `$corner/$extraction/${extraction}_${temp}/$voltage_combo/sim_tx.sp`
+   - Example: `TT/typical/typical_85/v1nom/sim_tx.sp`
+   - Format: Fully substituted SPICE netlist (111 lines, modified)
+   - Critical line: Line 52 preserved verbatim
+
+**No Other File Dependencies**: 
+- gen_tb.pl does NOT read CSV files, config files, or other inputs
+- All data comes from 44 command-line arguments
+- Pure stream processor: stdin → pattern matching → stdout
+
+### Pattern Matching Logic: 10 Substitution Rules
+
+**Rule 1: Temperature Substitution** (Lines 85-88)
+```perl
+if ($line =~ m/.temp /)
+{
+    print ".temp $temp_num\n";  # -40, 85, 100, or 125
+}
+```
+**Transforms**:
+- Template: `.temp 100`
+- Output: `.temp -40` (for m40 corner)
+
+---
+
+**Rule 2: HSPICE Model Corner** (Lines 90-93)
+```perl
+elsif ($line =~ m/(.+)DP_HSPICE_MODEL(.+)/)
+{
+    print "$1\DP_HSPICE_MODEL\" $si_corner\n";
+}
+```
+**Transforms**:
+- Template: `.lib "$DP_HSPICE_MODEL" TT`
+- Output: `.lib "$DP_HSPICE_MODEL" FFG` (for FFG corner)
+
+---
+
+**Rule 3: Extraction Parasitic Files** (Lines 96-103)
+```perl
+elsif ($line =~ m/(.+)\_tparam_typical.spf(.+)/)
+{
+    print "$1\_tparam_$ex_corner.spf\"\n";
+}
+elsif ($line =~ m/(.+)\_tparam_typical.red.spf(.+)/)
+{
+    print "$1\_tparam_$ex_corner.red.spf\"\n";
+}
+```
+**Transforms**:
+- Template: `.inc "layout_tparam_typical.spf"`
+- Output: `.inc "layout_tparam_cworst_CCworst_T.spf"` (for post-layout)
+
+---
+
+**Rule 4: Library Corner Parameters** (Lines 144-161)
+```perl
+elsif ($line =~ m/(.+)\_lib.lib(.+)/)
+{
+    if ($supply3 eq "vccn") {
+        # 3 supply
+        print "$1\_lib.lib\" $si_corner\_$ex_corner\_$temperature\_v1$vtrend_v1\_v2$vtrend_v2\_v3$vtrend_v3\n";
+    }
+    elsif ($supply2 eq "NA") {
+        # 1 supply
+        print "$1\_lib.lib\" $si_corner\_$ex_corner\_$temperature\_v1$vtrend_v1\n";
+    }
+    else {
+        # 2 supply
+        print "$1\_lib.lib\" $si_corner\_$ex_corner\_$temperature\_v1$vtrend_v1\_v2$vtrend_v2\n";
+    }
+}
+```
+**Pattern**: Files ending with `_lib.lib` get dynamic corner parameters
+**Does NOT Match**: `weakpullup.lib` (no underscore before `lib.lib`)
+
+**Transforms**:
+- Template: `.lib "custom_rs_lib.lib" default`
+- Output: `.lib "custom_rs_lib.lib" TT_typical_85_v1nom` (1 supply)
+- Output: `.lib "custom_rs_lib.lib" TT_typical_85_v1nom_v2nom` (2 supplies)
+
+---
+
+**Rule 5: VCCN Parameter** (Lines 166-231)
+```perl
+elsif ($line =~ m/.param vcn=(.+)/)
+{
+    if ($supply1 eq "vccn") {
+        if ($vtrend_v1 eq "max") { print ".param vcn=$vcnmax\n"; }
+        elsif ($vtrend_v1 eq "nom") { print ".param vcn=$vcnnom\n"; }
+        elsif ($vtrend_v1 eq "min") { print ".param vcn=$vcnmin\n"; }
+    }
+    # ... (similar for supply2, supply3)
+}
+```
+**Transforms**:
+- Template: `.param vcn=1.1`
+- Output: `.param vcn=1.188` (for max voltage, vccn supply)
+
+---
+
+**Rule 6: VSSH Parameter (VCCN-derived)** (Lines 238-306)
+```perl
+elsif ($line =~ m/.param vsh=(.+)/)
+{
+    if ($supply1 eq "vccn") {
+        if ($vtrend_v1 eq "max") {
+            print ".param vsh=\"(($vcnnom-0.8)*vcn/$vcnnom)+0.05\"\n";
+        }
+        # ... (complex formula based on voltage trend)
+    }
+}
+```
+**Function**: VSSH (substrate voltage) is calculated as a function of VCCN
+**Formula examples**:
+- Max: `vsh = ((vcn_nom - 0.8) * vcn / vcn_nom) + 0.05`
+- Nom: `vsh = ((vcn_nom - 0.85) * vcn / vcn_nom)`
+- Min: `vsh = ((vcn_nom - 0.85) * vcn / vcn_nom) - 0.05`
+
+---
+
+**Rule 7: VCC Parameter with VID Support** (Lines 310-484)
+```perl
+elsif ($line =~ m/.param vc=(.+)/)
+{
+    if ($supply1 eq "vcc") {
+        if ($vtrend_v1 eq "max") {
+            if ($vcc_vid eq "Yes") {
+                # Use corner-specific and temperature-specific VID tables
+                if ($vcc_vid_corner eq "tt") {
+                    if ($temperature eq "m40") { print ".param vc=$vccmax_tt_c\n"; }
+                    elsif ($temperature eq "125") { print ".param vc=$vccmax_tt_h\n"; }
+                    else { print ".param vc=$vccmax\n"; }
+                }
+                # ... (similar for ff, ss corners)
+            }
+            else {
+                print ".param vc=$vccmax\n";  # Standard max without VID
+            }
+        }
+        # ... (similar for nom, min)
+    }
+}
+```
+**Function**: VCC voltage with Voltage ID (VID) support
+- **Without VID**: Uses static vccmin, vccnom, vccmax
+- **With VID**: Uses 18 different voltage values based on:
+  - Corner (TT, FF, SS)
+  - Temperature (cold: m40, hot: 125, typical: 85/100)
+  - Trend (min, nom, max)
+
+**VCC Corner Mapping** (Lines 47-63):
+```perl
+if ($si_corner eq "TT" || $si_corner eq "FSG" || $si_corner eq "SFG") {
+    $vcc_vid_corner = "tt";
+}
+elsif ($si_corner eq "FFG" || $si_corner eq "FFG_SSG" || $si_corner eq "FFAG") {
+    $vcc_vid_corner = "ff";
+}
+elsif ($si_corner eq "SSG" || $si_corner eq "SSG_FFG" || $si_corner eq "SSAG") {
+    $vcc_vid_corner = "ss";
+}
+```
+
+---
+
+**Rule 8: VCCTX Parameter** (Lines 487-524)
+```perl
+elsif ($line =~ m/.param vctx=(.+)/)
+{
+    if ($supply2 eq "vcctx") {
+        if ($vtrend_v2 eq "max") { print ".param vctx=$vctxmax\n"; }
+        elsif ($vtrend_v2 eq "nom") { print ".param vctx=$vctxnom\n"; }
+        elsif ($vtrend_v2 eq "min") { print ".param vctx=$vctxmin\n"; }
+    }
+    elsif ($supply3 eq "vccn_vcctx") {
+        # ... (similar, controlled by v3 trend)
+    }
+    else {
+        print ".param vctx=$vctxnom\n";  # Default to nominal
+    }
+}
+```
+
+---
+
+**Rule 9: VCCANA Parameter** (Lines 527-563)
+```perl
+elsif ($line =~ m/.param vccana=(.+)/)
+{
+    if ($supply1 eq "vccana") {
+        if ($vtrend_v1 eq "max") { print ".param vccana=$vccanamax\n"; }
+        # ... (similar for nom, min)
+    }
+    elsif ($supply2 eq "vccana") {
+        # ... (controlled by v2 trend)
+    }
+}
+```
+
+---
+
+**Rule 10: Pass-Through** (Lines 566-569)
+```perl
+else
+{
+    print "$line\n";  # Copy line verbatim if no pattern matches
+}
+```
+**Critical Behavior**: 
+- **Line 52** `.lib "weakpullup.lib" enable` does NOT match any pattern
+- Result: **Copied verbatim, unchanged**
+- This is HOW Line 52 preservation works!
+
+### Why Line 52 is Preserved
+
+**Filename Analysis**:
+```
+Files that MATCH pattern "(.+)\_lib.lib(.+)":
+  ✓ custom_rs_lib.lib    (has _lib.lib)
+  ✓ custom_rt_lib.lib    (has _lib.lib)
+  ✓ anything_lib.lib     (has _lib.lib)
+
+Files that DO NOT MATCH:
+  ✗ weakpullup.lib       (no underscore before .lib)
+  ✗ cb.lib               (no _lib.lib pattern)
+  ✗ tco_ctrl.lib         (no _lib.lib pattern)
+  ✗ equalization.lib     (no _lib.lib pattern)
+```
+
+**Design Intent**:
+1. **Protocol-agnostic libraries** (most): Use `*_lib.lib` naming → Get PVT-specific parameters
+2. **Protocol-specific libraries** (weakpullup): Use `*.lib` naming → Preserve verbatim
+3. **Separation of concerns**: 
+   - PVT variation → Handled by pattern substitution
+   - Protocol variation → Handled by template difference (Line 52)
+
+### Complete Data Flow: config.cfg → gen_tb.pl → netlist
+
+**Step 1: User creates config.cfg** (15 parameters)
+```
+mode:polo
+vccn:1p1v
+vcctx:vcctx_600
+1st_supply_swp:vcc
+2nd_supply_swp:NA
+3rd_supply_swp:NA
+condition:perf
+CPU #:2
+MEM [G]:2
+alter_extraction:No
+alter_string#:11
+sim_mode:ac
+gs/gf_corner:Yes
+vcc_vid:Yes
+simulator:primesim
+postlay_cross_cornerlist:default
+```
+
+**Step 2: sim_pvt.sh sources configuration scripts**
+
+`read_cfg.sh` parses config.cfg:
+- Extracts: mode, supplies, condition, cpu, mem, etc.
+- Sets defaults for missing parameters
+
+`read_supply.sh` reads CSV table:
+- Input: `table_supply_list_ac.csv` (sim_mode=ac)
+- Looks up row: vccn=1p1v → gets vcnmin, vcnnom, vcnmax
+- Looks up row: vcctx=vcctx_600 → gets vctxmin, vctxnom, vctxmax
+- For vcc_vid=Yes: reads 18 VID voltage values
+- Output variables:
+  ```bash
+  vccmin=0.69   vccnom=0.78   vccmax=0.88
+  vcnmin=0.99   vcnnom=1.1    vcnmax=1.188
+  vctxmin=0.575 vctxnom=0.6   vctxmax=0.625
+  vccmin_tt_h=0.675 vccnom_tt_h=0.75 vccmax_tt_h=0.935
+  # ... (15 more VID values)
+  ```
+
+`read_corner.sh` reads CSV table:
+- Input: `table_corner_list.csv`
+- Condition: gs/gf_corner=Yes, postlay_cross_cornerlist=default
+- Output:
+  ```bash
+  typ_corner=TT
+  typ_ex=typical
+  typ_ex_cornerlist="TT FSG SFG FFG FFAG SSG SSAG FFG_SSG SSG_FFG"
+  cross_ex_cornerlist="FSG SFG SSG FFG FFG_SSG SSG_FFG"
+  cross_ex="cworst_CCworst_T cbest_CCbest_T"
+  ```
+
+**Step 3: pvt_loop.sh generates PVT matrix**
+
+`gen_pvt_loop_seq()` creates nested loops:
+```bash
+# For typical extraction (mode=polo)
+for i in [TT, FSG, SFG, FFG, FFAG, SSG, SSAG, FFG_SSG, SSG_FFG]  # 9 corners
+  for j in [typical]                                              # 1 extraction
+    for k in [m40, 125]                                           # 2 temps (stress)
+      for l in [v1min, v1nom, v1max]                              # 3 voltages
+        → 9 × 1 × 2 × 3 = 54 netlists
+
+# For cross extraction
+for i in [FSG, SFG, SSG, FFG, FFG_SSG, SSG_FFG]                   # 6 corners
+  for j in [cworst_CCworst_T, cbest_CCbest_T]                     # 2 extractions
+    for k in [m40, 125]                                           # 2 temps
+      for l in [v1min, v1nom, v1max]                              # 3 voltages
+        → 6 × 2 × 2 × 3 = 72 netlists
+
+# For nominal temperature
+for i in [TT]                                                     # 1 corner
+  for j in [typical]                                              # 1 extraction
+    for k in [85, 100]                                            # 2 temps (nominal)
+      for l in [v1nom]                                            # 1 voltage (nominal)
+        → 1 × 1 × 2 × 1 = 2 netlists
+
+Total: 54 + 72 + 2 = 128 netlists (example config)
+```
+
+**Step 4: core_func() calls gen_tb.pl**
+
+For ONE netlist (example: TT/typical/typical_85/v1nom):
+```bash
+mkdir -p TT/typical/typical_85/v1nom
+
+perl gen_tb.pl \
+  template/sim_tx.sp \          # Arg 1: template
+  TT \                          # Arg 2: si_corner
+  typical \                     # Arg 3: ex_corner
+  85 \                          # Arg 4: temperature
+  nom \                         # Arg 5: vtrend_v1 (from v1nom)
+  NA \                          # Arg 6: vtrend_v2 (supply2=NA)
+  NA \                          # Arg 7: vtrend_v3 (supply3=NA)
+  vcc \                         # Arg 8: supply1
+  NA \                          # Arg 9: supply2
+  NA \                          # Arg 10: supply3
+  0.69 0.78 0.88 \              # Args 11-13: vccmin, vccnom, vccmax
+  0.99 1.1 1.188 \              # Args 14-16: vcnmin, vcnnom, vcnmax
+  0.715 0.75 0.785 \            # Args 17-19: vccanamin, vccananom, vccanamax
+  0.575 0.6 0.625 \             # Args 20-22: vctxmin, vctxnom, vctxmax
+  Yes \                         # Arg 23: vcc_vid
+  0.675 0.75 0.935 \            # Args 24-26: vccmin_tt_h, vccnom_tt_h, vccmax_tt_h
+  0.69 0.78 0.935 \             # Args 27-29: vccmin_tt_c, vccnom_tt_c, vccmax_tt_c
+  0.675 0.75 0.88 \             # Args 30-32: vccmin_ff_h, vccnom_ff_h, vccmax_ff_h
+  0.675 0.75 0.88 \             # Args 33-35: vccmin_ff_c, vccnom_ff_c, vccmax_ff_c
+  0.69 0.75 0.935 \             # Args 36-38: vccmin_ss_h, vccnom_ss_h, vccmax_ss_h
+  0.69 0.78 0.935 \             # Args 39-41: vccmin_ss_c, vccnom_ss_c, vccmax_ss_c
+  > TT/typical/typical_85/v1nom/sim_tx.sp
+```
+
+**Step 5: gen_tb.pl processes template line-by-line**
+
+Template Line 24: `.temp 100`
+- Matches Rule 1
+- Output: `.temp 85`
+
+Template Line 6: `.lib "$DP_HSPICE_MODEL" TT`
+- Matches Rule 2
+- Output: `.lib "$DP_HSPICE_MODEL" TT` (no change, corner is TT)
+
+Template Line 26: `.param vc=0.75`
+- Matches Rule 7
+- si_corner=TT → vcc_vid_corner="tt"
+- temperature=85 (not m40 or 125, so use standard)
+- vtrend_v1=nom, vcc_vid=Yes
+- Output: `.param vc=0.78` (vccnom from args)
+
+Template Line 52: `.lib "weakpullup.lib" enable`
+- Does NOT match any pattern
+- Matches Rule 10 (else clause)
+- Output: `.lib "weakpullup.lib" enable` **VERBATIM**
+
+### Summary: How gen_tb.pl Achieves 99% Code Reuse
+
+**Single Script, Dual Purpose**:
+- GPIO and I3C use **identical gen_tb.pl**
+- No protocol-specific logic in Perl code
+- Protocol differentiation happens in **template, not generator**
+
+**Elegant Separation of Concerns**:
+1. **PVT variation** (corner, voltage, temperature)
+   - Handled by: Pattern matching in gen_tb.pl
+   - Affects: Model includes, voltage parameters, library sections
+   - Files: `*_lib.lib` pattern → Dynamically substituted
+
+2. **Protocol variation** (GPIO vs I3C)
+   - Handled by: Template Line 52 difference
+   - Affects: Only `weakpullup.lib` section selection
+   - Files: `weakpullup.lib` → Copied verbatim (no pattern match)
+
+**Result**:
+- 571 lines of Perl code: 100% reused
+- 111 lines of template: 99.1% reused (110 lines identical, 1 line different)
+- 44 arguments: Identical parameter list
+- 10 pattern rules: Protocol-agnostic
+
+**Total automation framework reuse: 99%+**
+
+---
+
 ## 📚 Circuit-Level Implementation
 
 ### The weakpullup.lib Structure (Inferred)
