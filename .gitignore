@@ -1,0 +1,223 @@
+# ============================================================================
+# WKPUP Project - Git Ignore Configuration
+# SPICE Simulation & Automation Framework for Altera Internal Repository
+# ============================================================================
+
+# ====================
+# Simulation Outputs
+# ====================
+# SPICE simulation results - large binary files
+*.fsdb
+*.fsdb+
+*.vcd
+*.wdb
+*.shm
+*.trn
+*.dsn
+*.ac0
+*.ac1
+*.ic
+*.ic0
+*.ic1
+*.mt0
+*.mt1
+*.pa0
+*.pt0
+*.pt1
+*.st0
+*.st1
+*.raw
+
+# Simulation logs and temporary files
+*.log
+*.elog
+*.err
+*.out
+*.tmp
+simulation_log.txt
+*.timestamp
+
+# Wave database directories
+*_wdf/
+*_wdb/
+.simvision/
+
+# SpectrRF and ADE results
+*.psfxl/
+*.psfbin/
+*.psf/
+psfdir/
+
+# ====================
+# LSF/Grid Outputs
+# ====================
+# LSF job files and outputs
+*.lsf
+*.lsfjob
+lsf.out.*
+lsf.err.*
+core.*
+
+# Grid temporary files from Altera compute clusters
+##*#.*
+.nfs*
+
+# ====================
+# Python & Automation
+# ====================
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Database files (exclude from repo, too large/dynamic)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Server logs
+server.log
+tornado_server.log
+*.pid
+
+# ====================
+# Archives & Backups
+# ====================
+# Archive directories (preserve history locally, not in repo)
+archive/
+archive_old_structure/
+history/
+md_archive/
+*.backup
+*.bak
+*~
+
+# Backup directories with timestamps
+00bkp_*/
+*_bkp/
+bkp_*/
+
+# Cadence library databases (design data - too large and auto-generated)
+**/lib_data/
+**/soswa/
+**/global/
+**.oa
+**.oa.cdslck
+**/maestro/
+**/schematic/
+**/symbol/
+*.sdb
+
+# Compressed archives
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+
+# ====================
+# Documentation
+# ====================
+# Keep markdown docs but exclude generated/temporary ones
+# (Selectively uncomment if needed)
+# *.md
+
+# ====================
+# Configuration
+# ====================
+# Environment-specific configs (keep templates, ignore actual)
+.cth.psgenv_vars
+.psg.env_ovr
+settings.json.backup
+
+# User-specific settings
+.vscode/settings.json
+.idea/
+
+# ====================
+# Results & Reports
+# ====================
+# PVT simulation results and runs
+**/runs/sim_*/
+**/runs/
+ringosc_pvt_results/
+pvt_summary.csv
+
+# Exclude large result directories but keep structure
+**/TT/
+**/FF/
+**/SS/
+**/SSG/
+**/FFG/
+**/FS/
+**/SF/
+
+# ====================
+# Operating System
+# ====================
+# Linux
+*~
+.directory
+.Trash-*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ====================
+# IDE & Editors
+# ====================
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# JetBrains
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*.swn
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ====================
+# Custom Exclusions
+# ====================
+# Registry and metadata
+.registry/
+
+# Development testing artifacts
+test_*.py.bak
+development/testing/*.result
+
+# ============================================================================
+# IMPORTANT NOTES FOR ALTERA REPOSITORY:
+# 1. Large files (>100MB) should use Git LFS - see .gitattributes
+# 2. Sensitive data (passwords, keys) must NEVER be committed
+# 3. Use .git/info/exclude for local-only exclusions
+# 4. Review this file periodically as project evolves
+# ============================================================================

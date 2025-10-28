@@ -1,0 +1,77 @@
+# ============================================================================
+# Git LFS Configuration for WKPUP SPICE Simulation Project
+# Altera Internal Repository - Large File Support
+# ============================================================================
+
+# ====================
+# Simulation Waveform Files (Large Binary)
+# ====================
+*.fsdb filter=lfs diff=lfs merge=lfs -text binary -delta
+*.fsdb+ filter=lfs diff=lfs merge=lfs -text binary -delta
+*.wdb filter=lfs diff=lfs merge=lfs -text binary -delta
+*.vcd filter=lfs diff=lfs merge=lfs -text binary -delta
+*.shm filter=lfs diff=lfs merge=lfs -text binary -delta
+
+# ====================
+# SPICE Simulation Data Files
+# ====================
+*.mt0 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.mt1 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.pt0 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.pt1 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.pa0 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.st0 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.st1 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.ic filter=lfs diff=lfs merge=lfs -text binary -delta
+*.ic0 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.ic1 filter=lfs diff=lfs merge=lfs -text binary -delta
+*.raw filter=lfs diff=lfs merge=lfs -text binary -delta
+
+# ====================
+# PSF/PSFXL Database Files
+# ====================
+*.psfxl filter=lfs diff=lfs merge=lfs -text binary -delta
+*.psfbin filter=lfs diff=lfs merge=lfs -text binary -delta
+
+# ====================
+# Compressed Archives
+# ====================
+*.tar.gz filter=lfs diff=lfs merge=lfs -text binary -delta
+*.tgz filter=lfs diff=lfs merge=lfs -text binary -delta
+*.zip filter=lfs diff=lfs merge=lfs -text binary -delta
+*.7z filter=lfs diff=lfs merge=lfs -text binary -delta
+
+# ====================
+# Database Files (if needed in repo)
+# ====================
+# Note: Generally excluded in .gitignore, but if specific DBs need tracking:
+# *.db filter=lfs diff=lfs merge=lfs -text binary -delta
+# *.sqlite filter=lfs diff=lfs merge=lfs -text binary -delta
+
+# ====================
+# Configuration Files (Text, no LFS)
+# ====================
+*.sp text
+*.tcl text
+*.csh text
+*.sh text
+*.py text
+*.md text
+*.txt text
+*.json text
+*.yaml text
+*.yml text
+
+# ====================
+# Notes on LFS Configuration
+# ====================
+# - binary: Treat as binary (no line-ending conversion)
+# - -delta: Disable delta compression (better for large binary files)
+# - filter=lfs: Route through Git LFS
+# - diff=lfs, merge=lfs: Use LFS for diff/merge operations
+#
+# Altera Artifactory Integration:
+# Configure in .gitconfig or globally:
+#   [lfs]
+#     url = https://altera01p-sc.devtools.altera.com/artifactory/api/lfs/fpga_configuration_fw_gitlfs-repos
+# ============================================================================
