@@ -2489,6 +2489,820 @@ Output Files:
 
 ---
 
+## 🔬 Recursive Analysis: Configuration System Deep Dive
+
+### Complete Configuration Loading Chain
+
+**Execution Path**:
+```
+runme.sh (user script)
+  ↓ sources:
+  script_param (environment variables)
+  ↓ sources:
+  read_cfg.sh (parses config.cfg)
+  ↓ calls:
+  read_cfg() function
+  ↓ sources (conditionally):
+  read_corner.sh → read_corner()
+  read_supply.sh → read_supply()
+  ↓ exports variables to:
+  sim_pvt.sh (main orchestrator)
+```
+
+### script_param: Environment Setup
+
+**Script Location**: `alias_param_source/script_param`
+
+**Purpose**: Define global paths and aliases for automation framework
+
+**Key Variables Exported**:
+```bash
+# Framework version selection
+script_path="/path/to/auto_pvt/ver03"
+
+# Main orchestrator
+sim_pvt="$script_path/sim_pvt.sh"
+
+# Testbench name
+testbench="sim_tx"
+
+# Tool paths (if custom locations needed)
+export PATH="/custom/tool/path:$PATH"
+```
+
+**Usage in runme.sh**:
+```bash
+source /nfs/.../script_param  # Load environment
+sh $sim_pvt config.cfg gen    # Use $sim_pvt variable
+```
+
+### read_cfg.sh: Configuration Parser (131 lines)
+
+**Script Location**: `auto_pvt/ver03/configuration/read_cfg.sh`
+
+**Purpose**: Parse config.cfg and set default values for all parameters
+
+**Input**: `$cfg_file` (default: "config.cfg")
+
+**Function: read_cfg()** (Lines 3-130)
+
+**Step 1: Set Default Values** (Lines 7-26)
+```bash
+# Defaults applied if parameters missing from config.cfg
+mode="prelay"                    # Simulation mode
+vcn_lvl="1p1v"                  # VCC nominal level
+vctx_lvl="vcctx_600"            # VCC TX level  
+vca_lvl="vccana"                # VCC analog level
+vcc_lvl="vcc"                   # VCC level
+supply1="vcc"                   # 1st supply sweep
+supply2="NA"                    # 2nd supply sweep
+supply3="NA"                    # 3rd supply sweep
+condition="perf"                # Operating condition
+ncpu="4"                        # Number of CPUs
+nmem="4"                        # Memory in GB
+alt_ext_mode="No"               # Alternate extraction mode
+alt_ext_n="0"                   # Alternate string count
+sim_mode="ac"                   # Simulation mode (ac/dc)
+gsgf_corner="No"                # GS/GF corner inclusion
+vcc_vid="No"                    # VCC VID support
+simulator="finesim"             # Simulator choice
+postlay_cross_cornerlist="default"  # Post-layout corner list
+```
+
+**Step 2: Parse config.cfg** (Lines 27-127)
+```bash
+while IFS=':' read -r col1 col2 col3
+do
+    # Parse each line of config.cfg
+    if [ "$col1" == "mode" ]; then
+        mode=$col2
+    elif [ "$col1" == "vccn" ]; then
+        vcn_lvl=$col2
+    elif [ "$col1" == "vcctx" ]; then
+        vctx_lvl=$col2
+    # ... (15 total parameters)
+    elif [ "$col1" == "postlay_cross_cornerlist" ]; then
+        postlay_cross_cornerlist=$col2
+        custom_corner=$col3  # Optional 3rd column
+    else
+        echo "ERROR reading config file"
+    fi
+done < "$current_path/$cfg_file"
+```
+
+**config.cfg Format**:
+```
+parameter:value:optional_value
+mode:polo
+vccn:1p1v
+vcctx:vcctx_600
+1st_supply_swp:vcc
+2nd_supply_swp:NA
+3rd_supply_swp:NA
+condition:perf
+CPU #:8
+MEM [G]:8
+alter_extraction:No
+alter_string#:11
+sim_mode:ac
+gs/gf_corner:Yes
+vcc_vid:Yes
+simulator:primesim
+postlay_cross_cornerlist:custom:FSG SFG
+```
+
+**Parameter Parsing Logic**:
+- Delimiter: `:` (colon)
+- Column 1: Parameter name
+- Column 2: Parameter value
+- Column 3: Optional (e.g., custom corner list)
+- Whitespace handling: Values taken as-is after colon
+
+**Variables Exported** (accessible to sim_pvt.sh):
+```bash
+$mode              # prelay or polo
+$vcn_lvl           # Voltage level string
+$vctx_lvl          # TX voltage level
+$supply1, $supply2, $supply3  # Supply sweep order
+$condition         # perf, func, htol, hvqk
+$ncpu, $nmem       # Resource requirements
+$alt_ext_mode, $alt_ext_n  # Extraction settings
+$sim_mode          # ac or dc
+$gsgf_corner       # Yes or No
+$vcc_vid           # Yes or No
+$simulator         # finesim, primesim, spectre
+$postlay_cross_cornerlist  # default, full, custom
+$custom_corner     # Custom corner string if specified
+```
+
+### read_corner.sh: Corner List Parser (93 lines)
+
+**Script Location**: `auto_pvt/ver03/configuration/read_corner.sh`
+
+**Purpose**: Load PVT corner definitions from CSV table
+
+**Input**: `table_corner_list.csv` (hardcoded path)
+
+**Function: read_corner()** (Lines 3-92)
+
+**Step 1: Parse CSV Table** (Lines 5-51)
+```bash
+csv_file="$script_path/configuration/table_corner_list.csv"
+
+while IFS=',' read -r col1 col2 col3
+do
+    if [ "$col1" == "nom_tt" ]; then
+        typ_ex=$col2              # e.g., "typical"
+        typ_corner=$col3          # e.g., "TT"
+    elif [ "$col1" == "full_tt" ]; then
+        typ_ex_cornerlist_tt=$col3  # e.g., "TT FSG SFG FFG FFAG SSG SSAG"
+    elif [ "$col1" == "full_tt_gsgf" ]; then
+        typ_ex_cornerlist_tt_gsgf=$col3  # With GS/GF corners
+    elif [ "$col1" == "cross_default" ]; then
+        cross_ex=$col2
+        cross_ex_cornerlist_default_nonegsgf=$col3
+    # ... (8 total row types)
+    fi
+done < "$csv_file"
+```
+
+**CSV Table Structure** (table_corner_list.csv):
+```csv
+type,extraction,corner list
+nom_tt,typical,TT
+full_tt,typical,TT FSG SFG FFG FFAG SSG SSAG
+full_tt_gsgf,typical,TT FSG SFG FFG FFAG SSG SSAG FFG_SSG SSG_FFG
+cross_default,cworst_CCworst_T cbest_CCbest_T,FSG SFG SSG FFG
+cross_default_gsgf,cworst_CCworst_T cbest_CCbest_T,FSG SFG SSG FFG FFG_SSG SSG_FFG
+cross_full,cworst_CCworst_T cbest_CCbest_T,TT FSG SFG FFG FFAG SSG SSAG
+cross_full_gsgf,cworst_CCworst_T cbest_CCbest_T,TT FSG SFG FFG FFAG SSG SSAG FFG_SSG SSG_FFG
+```
+
+**Column Definitions**:
+- **Column 1**: Row type identifier
+- **Column 2**: Extraction corner(s) (space-separated if multiple)
+- **Column 3**: SI corner list (space-separated)
+
+**Step 2: Apply GS/GF Corner Selection** (Lines 55-69)
+```bash
+if [ "$gsgf_corner" == "No" ]; then
+    typ_ex_cornerlist=$typ_ex_cornerlist_tt
+    cross_ex_cornerlist_full=$cross_ex_cornerlist_full_nonegsgf
+    cross_ex_cornerlist_default=$cross_ex_cornerlist_default_nonegsgf
+else
+    typ_ex_cornerlist=$typ_ex_cornerlist_tt_gsgf
+    cross_ex_cornerlist_full=$cross_ex_cornerlist_full_gsgf
+    cross_ex_cornerlist_default=$cross_ex_cornerlist_default_gsgf
+fi
+```
+
+**GS/GF Corners**:
+- `FFG_SSG`: Fast Si + Slow Global, mixed corners
+- `SSG_FFG`: Slow Si + Fast Global, mixed corners
+- Purpose: Model spatial variation in chip
+
+**Step 3: Apply Post-Layout Corner Selection** (Lines 72-91)
+```bash
+if [ "$postlay_cross_cornerlist" == "default" ]; then
+    cross_ex_cornerlist=$cross_ex_cornerlist_default
+elif [ "$postlay_cross_cornerlist" == "full" ]; then
+    cross_ex_cornerlist=$cross_ex_cornerlist_full
+elif [ "$postlay_cross_cornerlist" == "custom" ]; then
+    cross_ex_cornerlist=$custom_corner  # From config.cfg col3
+else
+    cross_ex_cornerlist=$cross_ex_cornerlist_default
+fi
+```
+
+**Variables Exported**:
+```bash
+$typ_corner         # "TT"
+$typ_ex             # "typical"
+$typ_ex_cornerlist  # "TT FSG SFG FFG FFAG SSG SSAG" or with GS/GF
+$cross_ex           # "cworst_CCworst_T cbest_CCbest_T"
+$cross_ex_cornerlist  # Corner list for cross extraction (default/full/custom)
+```
+
+### read_supply.sh: Voltage Table Parser (358 lines)
+
+**Script Location**: `auto_pvt/ver03/configuration/read_supply.sh`
+
+**Purpose**: Load voltage values from supply tables based on configuration
+
+**Input**: CSV table (selected by `$sim_mode`)
+
+**Function: read_supply()** (Lines 3-357)
+
+**Step 1: Select CSV Table** (Lines 6-18)
+```bash
+if [ "$sim_mode" == "ac" ]; then
+    csv_file="$script_path/configuration/table_supply_list_ac.csv"
+elif [ "$sim_mode" == "dc" ]; then
+    csv_file="$script_path/configuration/table_supply_list_dc.csv"
+else
+    csv_file="$script_path/configuration/table_supply_list.csv"
+fi
+```
+
+**Step 2: Initialize VID Voltage Arrays** (Lines 20-37)
+```bash
+# Initialize 18 VID voltage values to 0
+vccmin_tt_c=0
+vccnom_tt_c=0
+vccmax_tt_c=0
+vccmin_ff_c=0
+vccnom_ff_c=0
+vccmax_ff_c=0
+vccmin_tt_h=0
+vccnom_tt_h=0
+vccmax_tt_h=0
+vccmin_ff_h=0
+vccnom_ff_h=0
+vccmax_ff_h=0
+vccmin_ss_c=0
+vccnom_ss_c=0
+vccmax_ss_c=0
+vccmin_ss_h=0
+vccnom_ss_h=0
+vccmax_ss_h=0
+```
+
+**Step 3: Parse Voltage Table** (Lines 40-355)
+```bash
+while IFS=',' read -r col1 col2 col3 col4 col5 col6 col7 col8
+do
+    # Match rail name from config (e.g., vcc_lvl="vcc")
+    if [ "$col1" == "$vcc_lvl" ]; then
+        # Select voltage based on condition
+        if [ "$condition" == "func" ]; then
+            vccmin=$col2  # Functional min
+            vccnom=$col4  # Nominal
+            vccmax=$col6  # Functional max
+        elif [ "$condition" == "perf" ]; then
+            vccmin=$col3  # Performance min
+            vccnom=$col4  # Nominal
+            vccmax=$col5  # Performance max
+        elif [ "$condition" == "htol" ]; then
+            vccmin=$col2
+            vccnom=$col4
+            vccmax=$col7  # HTOL max
+        elif [ "$condition" == "hvqk" ]; then
+            vccmin=$col2
+            vccnom=$col4
+            vccmax=$col8  # HVQK max
+        fi
+    # Similar logic for vcc_vid_tt_h, vcc_vid_tt_c, etc. (18 rows)
+    elif [ "$col1" == "$vcn_lvl" ]; then
+        # Parse VCCN voltages
+    elif [ "$col1" == "$vca_lvl" ]; then
+        # Parse VCCANA voltages
+    elif [ "$col1" == "$vctx_lvl" ]; then
+        # Parse VCCTX voltages
+    fi
+done < "$csv_file"
+```
+
+**CSV Table Structure** (table_supply_list_ac.csv):
+```csv
+rail,func_min,perf_min,nom,perf_max,func_max,htol,hvqk
+vcc,0.68,0.69,0.78,0.88,0.89,0.945,1.6
+vcc_vid_tt_h,0.665,0.675,0.75,0.935,0.945,0.945,1.6
+vcc_vid_tt_c,0.68,0.69,0.78,0.935,0.945,0.945,1.6
+vcc_vid_ff_h,0.665,0.675,0.75,0.88,0.89,0.945,1.6
+vcc_vid_ff_c,0.665,0.675,0.75,0.88,0.89,0.945,1.6
+vcc_vid_ss_h,0.68,0.69,0.75,0.935,0.945,0.945,1.6
+vcc_vid_ss_c,0.68,0.69,0.78,0.935,0.945,0.945,1.6
+vccana,0.705,0.715,0.75,0.785,0.795,0.945,1.6
+1p1v,0.98,0.99,1.1,1.188,,1.246,1.65
+vcctx_600,0.565,0.575,0.6,0.625,0.635,0.623,0.825
+```
+
+**Column Definitions**:
+- **Column 1**: Rail name (matches config parameter)
+- **Column 2**: func_min (functional minimum voltage)
+- **Column 3**: perf_min (performance minimum)
+- **Column 4**: nom (nominal voltage)
+- **Column 5**: perf_max (performance maximum)
+- **Column 6**: func_max (functional maximum)
+- **Column 7**: htol (high temperature operating life max)
+- **Column 8**: hvqk (high voltage qualification max)
+
+**Condition-to-Column Mapping**:
+```
+condition="perf" → min=col3, nom=col4, max=col5
+condition="func" → min=col2, nom=col4, max=col6
+condition="htol" → min=col2, nom=col4, max=col7
+condition="hvqk" → min=col2, nom=col4, max=col8
+```
+
+**Variables Exported** (example for perf condition):
+```bash
+$vccmin=0.69      $vccnom=0.78      $vccmax=0.88
+$vcnmin=0.99      $vcnnom=1.1       $vcnmax=1.188
+$vccanamin=0.715  $vccananom=0.75   $vccanamax=0.785
+$vctxmin=0.575    $vctxnom=0.6      $vctxmax=0.625
+
+# VID voltages (18 values if vcc_vid="Yes")
+$vccmin_tt_h=0.675  $vccnom_tt_h=0.75  $vccmax_tt_h=0.935
+$vccmin_tt_c=0.69   $vccnom_tt_c=0.78  $vccmax_tt_c=0.935
+# ... (12 more VID values)
+```
+
+### Configuration Data Flow Summary
+
+```
+User creates config.cfg (15 parameters)
+  ↓
+runme.sh sources script_param
+  ├── Sets $script_path
+  ├── Sets $sim_pvt
+  └── Sets $testbench
+  ↓
+runme.sh sources read_cfg.sh
+  ↓
+read_cfg() parses config.cfg
+  ├── Reads mode, vcn_lvl, vctx_lvl, etc.
+  ├── Applies defaults if parameters missing
+  └── Exports 18 variables
+  ↓
+sim_pvt.sh sources read_corner.sh
+  ↓
+read_corner() parses table_corner_list.csv
+  ├── Reads corner definitions
+  ├── Applies gsgf_corner filter
+  ├── Applies postlay_cross_cornerlist selection
+  └── Exports 5 corner variables
+  ↓
+sim_pvt.sh sources read_supply.sh
+  ↓
+read_supply() parses table_supply_list_*.csv
+  ├── Selects CSV based on sim_mode
+  ├── Matches rail names to config values
+  ├── Selects voltage columns by condition
+  └── Exports 22 voltage variables (4 rails × 3 values + 18 VID)
+  ↓
+All variables available to sim_pvt.sh stages
+  ├── gen: Uses corners, voltages for PVT matrix
+  ├── run: Uses ncpu, nmem, simulator
+  ├── ext: Uses alt_ext_mode, alt_ext_n
+  ├── srt: Uses supply1/2/3, vcc_vid, voltages
+  ├── bkp: Uses typ_corner, typ_ex
+  └── chk: Uses simulator, ncpu, nmem, mode
+```
+
+**Total Variables Exported**: ~45 variables
+- 18 from read_cfg.sh
+- 5 from read_corner.sh  
+- 22 from read_supply.sh
+
+**Processing Time**:
+- read_cfg.sh: ~0.01 seconds (parse 15-line file)
+- read_corner.sh: ~0.01 seconds (parse 9-row CSV)
+- read_supply.sh: ~0.02 seconds (parse 24-row CSV)
+- **Total**: ~0.04 seconds
+
+---
+
+## 🔬 Recursive Analysis: runme.sh Orchestration
+
+### Complete Orchestration Flow
+
+**Script Location**: `auto_pvt/ver03/runme_script/runme.sh`
+
+**Purpose**: Top-level automation script that coordinates all 6 stages
+
+**Script Structure**: 123 lines
+
+**Execution Phases**:
+1. Setup and configuration loading (lines 1-17)
+2. User customization (lines 20-30)
+3. Main execution logic (lines 33-113)
+4. Completion and timing (lines 116-121)
+
+### Phase 1: Setup and Configuration (Lines 1-17)
+
+**Environment Loading**:
+```bash
+source /nfs/.../script_param
+
+# Variables now available:
+# $script_path="/path/to/auto_pvt/ver03"
+# $sim_pvt="$script_path/sim_pvt.sh"
+# $testbench="sim_tx"
+
+current_path=`pwd`
+cfg_file="config.cfg"
+```
+
+**Configuration Sourcing**:
+```bash
+source /$script_path/configuration/read_cfg.sh
+source /$script_path/runme_script/runme_func.sh
+read_cfg  # Execute configuration parsing
+```
+
+**After read_cfg()**:
+- 18 config variables loaded
+- Subsequent calls to read_corner() and read_supply() happen inside sim_pvt.sh
+
+### Phase 2: User Customization (Lines 24-29)
+
+**script_opt Options**:
+```bash
+script_opt="Gen_run_compile_all"  # Default: Complete workflow
+
+# Available options:
+# "Gen_run_compile_all" → All 6 stages (gen + run + ext + srt + bkp + usr_script)
+# "Gen_only"            → Generate testbenches only (stage 1)
+# "run_only_all"        → Run simulations only (stage 2, all extractions)
+# "run_only_typical"    → Run typical extraction only
+# "run_only_cworst_CCworst_T"  → Run cworst extraction only
+# "run_only_cbest_CCbest_T"    → Run cbest extraction only
+# "compile_only"        → Extract + sort + backup only (stages 3-5)
+```
+
+**usr_script Flag**:
+```bash
+usr_script="No"  # Default: Skip user script
+# "Yes" → Execute custom post-processing (stage 6 alternative)
+```
+
+### Phase 3: Main Execution Logic (Lines 38-113)
+
+**Timestamp and Logging** (Lines 39-45):
+```bash
+timestamp=$(date +"%Y%m%d%H%M")
+start_time=$(date +%s)
+
+echo "Auto_pvt script start at : $timestamp"
+echo "Auto_pvt script start at : $timestamp" >> script_logging.log
+echo "Sim dir : $current_path"
+```
+
+**Stage 1: Generation** (Lines 48-54)
+```bash
+if [ "$script_opt" = "Gen_run_compile_all" ] || [ "$script_opt" = "Gen_only" ]; then
+    logging "Gen PVT testbench & directory"
+    sh $sim_pvt config.cfg gen
+    sleep 10  # Allow file system sync
+fi
+```
+
+**Stage 2: Simulation** (Lines 56-76)
+
+**Pre-layout Mode**:
+```bash
+if [ "$script_opt" = "Gen_run_compile_all" ] || [ "$script_opt" = "run_only_all" ]; then
+    if [ "$mode" = "prelay" ]; then
+        logging "Submit simulation job & running prelay"
+        run_sim  # Calls function from runme_func.sh
+    else
+        # Post-layout: Multiple extractions
+        logging "Submit simulation job & running for polo extraction: typical"
+        run_sim "typical"
+        
+        logging "Submit simulation job & running for polo extraction: cworst_CCworst_T"
+        run_sim "cworst_CCworst_T"
+        
+        logging "Submit simulation job & running for polo extraction: cbest_CCbest_T"
+        run_sim "cbest_CCbest_T"
+    fi
+fi
+```
+
+**Selective Extraction Options** (Lines 78-90):
+```bash
+if [ "$script_opt" = "run_only_cworst_CCworst_T" ]; then
+    run_sim "cworst_CCworst_T"
+fi
+
+if [ "$script_opt" = "run_only_cbest_CCbest_T" ]; then
+    run_sim "cbest_CCbest_T"
+fi
+```
+
+**Stages 3-5: Compilation** (Lines 92-113)
+```bash
+if [ "$script_opt" = "Gen_run_compile_all" ] || [ "$script_opt" = "compile_only" ]; then
+    
+    logging "Data extraction"
+    sh $sim_pvt config.cfg ext
+    sleep 10
+    
+    logging "Data sorting"
+    sh $sim_pvt config.cfg srt
+    sleep 10
+    
+    logging "Data backup"
+    sh $sim_pvt config.cfg bkp
+    sleep 10
+    
+    if [ "$usr_script" = "Yes" ]; then
+        sh $sim_pvt config.cfg usr_script
+    fi
+fi
+```
+
+### Phase 4: Completion and Timing (Lines 116-121)
+
+```bash
+end_time=$(date +%s)
+delta=$((end_time - start_time))
+hours=$(echo "scale=2; $delta / 3600" | bc)
+
+echo "Auto_pvt script completed, time: $hours HRs"
+echo "Auto_pvt script completed, time: $hours HRs" >> script_logging.log
+```
+
+### runme_func.sh: Helper Functions (57 lines)
+
+**Script Location**: `auto_pvt/ver03/runme_script/runme_func.sh`
+
+**Function 1: logging()** (Lines 5-9)
+```bash
+logging ()
+{
+    timestamp=$(date +"%Y%m%d%H%M%S")
+    echo "$timestamp :: $1" >> script_logging.log
+}
+```
+
+**Usage**: `logging "Gen PVT testbench & directory"`
+
+**Output to script_logging.log**:
+```
+20250828113045 :: Gen PVT testbench & directory
+20250828113055 :: Submit simulation job & running prelay
+20250828133210 :: Data extraction
+...
+```
+
+**Function 2: run_sim()** (Lines 11-56)
+
+**Purpose**: Submit simulations and wait for completion with automatic rerun
+
+**Parameters**:
+- `$1`: Extraction corner (optional, for post-layout)
+  - Empty for pre-layout
+  - "typical", "cworst_CCworst_T", or "cbest_CCbest_T" for post-layout
+
+**Step 1: Submit Jobs** (Line 13)
+```bash
+sh $sim_pvt config.cfg run $1
+# Outputs job IDs to job_log.txt:
+# "JobID 12345678 Status: PENDING ..."
+# "JobID 12345679 Status: PENDING ..."
+```
+
+**Step 2: Extract Job IDs** (Line 15)
+```bash
+grep -o 'JobID [0-9]*' job_log.txt | cut -d ' ' -f2 > job_id.txt
+# Extracts:
+# 12345678
+# 12345679
+# ...
+```
+
+**Step 3: Poll Job Queue** (Lines 17-25)
+```bash
+qjob=10  # Initialize to non-zero
+while [[ $qjob -gt 0 ]]
+do
+    # Get current queue status
+    nbstatus jobs --target altera_png_normal > job_chk.txt
+    
+    # Extract running job IDs (skip 7-line header)
+    tail -n +7 job_chk.txt | awk '{print $2}' | grep -o '[0-9]*' > job_q_id.txt
+    
+    # Count how many of our jobs are still running
+    qjob=`grep -Fwf job_q_id.txt job_id.txt | wc -l`
+    
+    printf "\r%s" "running Jobs: $qjob   "  # Live progress counter
+    sleep 30  # Check every 30 seconds
+done
+```
+
+**grep -Fwf Explanation**:
+- `-F`: Fixed string (not regex)
+- `-w`: Match whole words only
+- `-f job_q_id.txt`: Read patterns from file
+
+**Effect**: Matches job IDs from our submission that are still in queue
+
+**Step 4: Check for Failures** (Lines 27-30)
+```bash
+echo ""
+echo "check un-complete job"
+sh $sim_pvt config.cfg chk $1
+sleep 10
+```
+
+**Step 5: Automatic Rerun** (Lines 31-52)
+```bash
+if [ -f rerun.sh ]; then
+    echo "re-run un-complete job"
+    sh rerun.sh > job_log.txt  # Execute rerun commands
+    
+    # Extract new job IDs
+    grep -o 'JobID [0-9]*' job_log.txt | cut -d ' ' -f2 > job_id.txt
+    
+    # Poll again for rerun jobs
+    qjob=10
+    while [[ $qjob -gt 0 ]]
+    do
+        nbstatus jobs --target altera_png_normal > job_chk.txt
+        tail -n +7 job_chk.txt | awk '{print $2}' | grep -o '[0-9]*' > job_q_id.txt
+        qjob=`grep -Fwf job_q_id.txt job_id.txt | wc -l`
+        printf "\r%s" "running Jobs: $qjob   "
+        sleep 30
+    done
+    
+    echo "re-run done"
+    rm rerun.sh
+else
+    echo "No un-complete job"
+fi
+```
+
+**Step 6: Cleanup** (Lines 54-55)
+```bash
+rm *.txt           # Remove temporary files
+rm job_stat.log    # Remove status log
+```
+
+### Complete Workflow Example
+
+**User Execution**:
+```bash
+$ cd /path/to/simulation/directory
+$ ls
+config.cfg  template/
+
+$ sh /path/to/runme.sh
+```
+
+**Console Output**:
+```
+Auto_pvt script start at : 202508281130
+Sim dir : /path/to/simulation/directory
+
+20250828113045 :: Gen PVT testbench & directory
+[Generation creates 84 directories with netlists]
+
+20250828113055 :: Submit simulation job & running prelay
+running Jobs: 84   [waits ~2 hours]
+running Jobs: 42   
+running Jobs: 15   
+running Jobs: 3    
+running Jobs: 0    
+
+check un-complete job
+re-run un-complete job
+running Jobs: 2    
+running Jobs: 0    
+re-run done
+No un-complete job
+
+20250828133210 :: Data extraction
+20250828133220 :: Data sorting
+20250828133230 :: Data backup
+
+Auto_pvt script completed, time: 2.02 HRs
+```
+
+**Generated Files**:
+```
+Directory structure:
+├── TT/, FFG/, SSG/, ... (DELETED after backup)
+├── 00bkp_202508281330/
+│   ├── report/
+│   │   ├── creport.txt
+│   │   └── report_*.txt (84 files)
+│   ├── tb_bkp/
+│   │   └── typical_*/v1*/sim_tx.sp
+│   └── simulation.log
+├── config.cfg
+├── template/
+└── script_logging.log
+```
+
+**script_logging.log Content**:
+```
+20250828113045 :: Gen PVT testbench & directory
+20250828113055 :: Submit simulation job & running prelay
+20250828133210 :: Data extraction
+20250828133220 :: Data sorting
+20250828133230 :: Data backup
+```
+
+### Workflow Timing Breakdown
+
+**Typical Execution** (84 simulations, 8 CPUs each):
+```
+Stage 1 (gen):     ~1 minute    (84 netlists generated)
+Stage 2 (run):     ~120 minutes (parallel simulation)
+  - Job submission: 10 seconds
+  - Simulation:     115 minutes
+  - Rerun:          5 minutes
+Stage 3 (ext):     ~10 seconds  (parse 84 .mt0 files)
+Stage 4 (srt):     ~1 second    (aggregate to creport.txt)
+Stage 5 (bkp):     ~5 seconds   (rsync + cleanup)
+─────────────────────────────────
+Total:             ~122 minutes (~2 hours)
+```
+
+**Resource Usage**:
+- Disk space during run: 5-50 GB (netlists + outputs + waveforms)
+- Disk space after backup: 200 KB - 50 GB (depending on waveform saving)
+- CPU hours: 50-70 hours (84 jobs × 8 cores × 0.5-1 hour)
+- Wall clock: 2-3 hours (parallel execution)
+
+### script_opt Comparison
+
+**Gen_run_compile_all** (Complete workflow):
+- Time: ~2-3 hours
+- Output: 00bkp_*/ with reports
+- Use case: Production characterization
+
+**Gen_only** (Just generate netlists):
+- Time: ~1 minute
+- Output: 84 netlists in corner directories
+- Use case: Inspect netlists before simulation
+
+**run_only_typical** (Run one extraction):
+- Time: ~30-45 minutes
+- Output: Typical extraction simulations only
+- Use case: Quick check or debug
+
+**compile_only** (Process existing simulations):
+- Time: ~30 seconds
+- Output: New creport.txt and backup
+- Use case: Re-extract with different settings
+
+### Automation Benefits
+
+**Manual vs Automated**:
+```
+Manual Process:
+  1. Generate netlist for TT/-40/v1min         (5 min)
+  2. Submit job, wait                          (40 min)
+  3. Check log, extract measurement            (5 min)
+  4. Repeat 83 more times                      (70 hours!)
+  ────────────────────────────────────────────
+  Total: ~70 hours of engineer time
+
+Automated (runme.sh):
+  1. Create config.cfg                         (2 min)
+  2. sh runme.sh, wait                         (2 hours)
+  3. Analyze creport.txt                       (10 min)
+  ────────────────────────────────────────────
+  Total: ~12 minutes of engineer time + 2 hours automated
+  
+Productivity Gain: 350× faster (70 hours → 12 minutes)
+```
+
+---
+
 ## 📚 Circuit-Level Implementation
 
 ### The weakpullup.lib Structure (Inferred)
