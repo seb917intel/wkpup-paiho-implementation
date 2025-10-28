@@ -108,11 +108,11 @@ md_archive/
 !archive/**
 
 # Backup directories with timestamps
-# NOTE: Initial dependency samples with backups were committed for reference (commit 970b0ff)
-# All future backups will be excluded from repository
-00bkp_*/
-*_bkp/
-bkp_*/
+# NOTE: Backup files (00bkp_*) are ALLOWED in this repository for documentation and analysis purposes
+# This is a reference/learning repository - no new backups will be generated
+# 00bkp_*/ - EXCLUDED (commented out to allow tracking)
+# *_bkp/ - EXCLUDED (commented out to allow tracking)
+# bkp_*/ - EXCLUDED (commented out to allow tracking)
 
 # Cadence library databases (design data - too large and auto-generated)
 **/lib_data/
