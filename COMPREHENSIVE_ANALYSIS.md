@@ -1385,6 +1385,16 @@ Line 65: open (INFILE, "< $infile") || die "ERROR: Cannot open input file - $inf
 
 ## 🔬 Recursive Analysis: STAGE 2 - Simulation Execution (run)
 
+**📌 Signpost**: The previous section showed how gen_tb.pl creates 84-128 netlists from templates. Now we examine what happens to those netlists: how they're submitted to SPICE simulators, executed in parallel, and monitored for completion.
+
+**Critical Connection**: Line 52's `enable` or `enable_i3c` parameter comes to life here. The simulator reads this line and loads the corresponding circuit implementation from weakpullup.lib.
+
+**What This Section Covers**:
+- Simulator selection (PrimeSim/FineSim)
+- Job submission via nbjob batch system
+- Parallel execution strategy
+- Output file generation (.mt0, .log, .fsdb)
+
 ### Complete Call Chain for Simulation Stage
 
 **Execution Path**:
@@ -1639,6 +1649,12 @@ Output Files Created:
 ---
 
 ## 🔬 Recursive Analysis: STAGE 3 - Data Extraction (ext)
+
+**📌 Signpost**: After simulations complete, we need to extract meaningful data from raw output files. This stage parses .mt0 measurement files and .log files to create human-readable reports.
+
+**Building on STAGE 2**: Simulations produced .mt0 files containing measurements. This stage converts those binary measurements into formatted reports showing IOH (weak pull-up current) and Rwkpull (weak pull-up resistance) values.
+
+**GPIO vs I3C Differentiation**: Here we see the SAME extraction scripts process both GPIO and I3C results - another example of code reuse. The scripts don't know or care about the protocol; they just extract measurements.
 
 ### Complete Call Chain for Extraction Stage
 
@@ -1929,6 +1945,12 @@ del_rr	del_ff	temper	alter#
 
 ## 🔬 Recursive Analysis: STAGE 4 - Data Sorting and Report Consolidation (srt)
 
+**📌 Signpost**: With 84-128 individual report files created in STAGE 3, we need a single consolidated report for analysis. This stage merges all individual reports into one master file: `creport.txt`.
+
+**From Many to One**: STAGE 3 produced report_TT_typical_85_v1nom.txt, report_FFG_typical_m40_v1min.txt, etc. This stage combines them all, sorted by corner and voltage, with a configuration header.
+
+**Value to Engineers**: Instead of manually opening 84+ text files, engineers get one comprehensive report showing all PVT corners at a glance.
+
 ### Complete Call Chain for Sorting Stage
 
 **Execution Path**:
@@ -2203,6 +2225,16 @@ Output: report/creport.txt
 ---
 
 ## 🔬 Recursive Analysis: STAGE 5 - Backup and Archive (bkp)
+
+**📌 Signpost**: The final production stage creates a timestamped backup of all results, ensuring reproducibility and enabling historical comparison. This is how the 213 backup files in the repository were created.
+
+**Why Backup Matters**: 
+- **Regression Detection**: Compare current run against previous backups
+- **Design Iteration**: Track how changes affect performance over time
+- **Reproducibility**: Preserve complete snapshot of results
+- **Compliance**: Maintain audit trail of verification runs
+
+**Repository Context**: The `00bkp_202508191107/`, `00bkp_202508191118/`, and `00bkp_202508191157/` directories you see in the repo were created by this stage on different days/times.
 
 ### Complete Call Chain for Backup Stage
 
@@ -2515,6 +2547,16 @@ After Backup:
 ---
 
 ## 🔬 Recursive Analysis: STAGE 6 - Job Status Check and Rerun (chk)
+
+**📌 Signpost**: This optional stage handles job failures gracefully. When running 84-128 parallel simulations, some may fail due to license issues, resource contention, or transient errors. This stage identifies failed jobs and reruns them.
+
+**Real-World Robustness**: In production environments, not every simulation completes successfully on the first try. This stage makes the framework resilient to intermittent failures.
+
+**How It Works**:
+1. Check each corner directory for missing .log files
+2. Identify failed/incomplete simulations
+3. Resubmit only the failed jobs
+4. Avoid wasting time re-running successful simulations
 
 ### Complete Call Chain for Check Stage
 
@@ -2842,6 +2884,15 @@ Output Files:
 ---
 
 ## 🔬 Recursive Analysis: Configuration System Deep Dive
+
+**📌 Signpost**: All previous stages (gen, run, ext, srt, bkp, chk) are driven by configuration. This section reveals how the 15-parameter config.cfg file controls the entire automation pipeline.
+
+**Central Question Answered**: How does a simple text file control 287 scripts and generate 84-128 different PVT corner simulations?
+
+**Key Insight**: The configuration system is the "brain" of the framework. Understanding it reveals:
+- How GPIO and I3C use identical configuration structure
+- How the same framework adapts to different supply voltages
+- How PVT corners are selected and combined
 
 ### Complete Configuration Loading Chain
 
@@ -3256,6 +3307,12 @@ All variables available to sim_pvt.sh stages
 ---
 
 ## 🔬 Recursive Analysis: runme.sh Orchestration
+
+**📌 Signpost**: We've analyzed each of the 6 stages individually. Now let's see how they're orchestrated together by the master script: runme.sh. This is the script users actually execute.
+
+**The User's Perspective**: When an engineer types `sh runme.sh`, what happens behind the scenes? This section reveals the complete execution flow from user command to final backup.
+
+**Why runme.sh is Identical for GPIO and I3C**: This 123-line script is 100% shared between GPIO and I3C. It doesn't know or care which protocol it's running - it just follows the configuration.
 
 ### Complete Orchestration Flow
 
@@ -4354,49 +4411,49 @@ This comprehensive document consolidates information from 8 detailed source docu
 1. **[TIER1_FRAMEWORK_ANALYSIS.md](archive/source_documents/TIER1_FRAMEWORK_ANALYSIS.md)** (834 lines)
    - **Content**: Complete automation framework architecture, configuration system, workflow stages
    - **Referenced in this document**: 
-     - [Automation Framework Architecture](#automation-framework-architecture)
-     - [Complete End-to-End Workflow](#complete-end-to-end-workflow)
-     - [Data Flow and Report Generation](#data-flow-and-report-generation)
+     - [Automation Framework Architecture](#-automation-framework-architecture)
+     - [Complete End-to-End Workflow](#-complete-end-to-end-workflow)
+     - [Data Flow and Report Generation](#-data-flow-and-report-generation)
 
 2. **[TIER2_TESTBENCH_ANALYSIS.md](archive/source_documents/TIER2_TESTBENCH_ANALYSIS.md)** (788 lines)
    - **Content**: Template system, parameter substitution mechanism, backup evolution analysis
    - **Referenced in this document**:
-     - [Template Architecture and Preservation](#template-architecture-and-preservation)
-     - [PVT Corner Coverage and Validation](#pvt-corner-coverage-and-validation)
-     - [Backup Strategy and Reproducibility](#data-flow-and-report-generation)
+     - [Template Architecture and Preservation](#-template-architecture-and-preservation)
+     - [PVT Corner Coverage and Validation](#-pvt-corner-coverage-and-validation)
+     - [Backup Strategy and Reproducibility](#-data-flow-and-report-generation)
 
 3. **[TIER3_DEPENDENCY_MAP.md](archive/source_documents/TIER3_DEPENDENCY_MAP.md)** (895 lines)
    - **Content**: Complete 7-level dependency graph, visual dependency trees, file classification
    - **Referenced in this document**:
-     - [Complete Dependency Chain](#complete-dependency-chain)
+     - [Complete Dependency Chain](#-complete-dependency-chain)
      - [Technical Reference](#technical-reference)
 
 4. **[CRITICAL_FINDINGS.md](archive/source_documents/CRITICAL_FINDINGS.md)** (960 lines)
    - **Content**: Single-parameter differentiation analysis, code reuse quantification, design patterns
    - **Referenced in this document**:
-     - [Code Reuse Implementation Strategy](#code-reuse-implementation-strategy)
-     - [Reusable Design Patterns](#reusable-design-patterns)
-     - [Business Impact](#business-impact-of-the-architecture)
+     - [Code Reuse Implementation Strategy](#-code-reuse-implementation-strategy)
+     - [Reusable Design Patterns](#-reusable-design-patterns)
+     - [Business Impact](#-business-impact-of-the-architecture)
 
 ### Protocol-Specific Analysis
 
 5. **[GPIO_ANALYSIS.md](archive/source_documents/GPIO_ANALYSIS.md)** (483 lines)
    - **Content**: GPIO-specific implementation details, GPIO dependency mapping
    - **Referenced in this document**:
-     - [The Critical Difference: GPIO vs I3C](#the-critical-difference-gpio-vs-i3c)
+     - [The Critical Difference: GPIO vs I3C](#-the-critical-difference-gpio-vs-i3c)
      - [Quantified Similarity Analysis](#quantified-similarity-analysis)
 
 6. **[I3C_ANALYSIS.md](archive/source_documents/I3C_ANALYSIS.md)** (660 lines)
    - **Content**: I3C-specific implementation details, actual simulation results
    - **Referenced in this document**:
-     - [The Critical Difference: GPIO vs I3C](#the-critical-difference-gpio-vs-i3c)
-     - [Circuit-Level Implementation](#circuit-level-implementation)
+     - [The Critical Difference: GPIO vs I3C](#-the-critical-difference-gpio-vs-i3c)
+     - [Circuit-Level Implementation](#-circuit-level-implementation)
 
 7. **[COMPARISON.md](archive/source_documents/COMPARISON.md)** (544 lines)
    - **Content**: Side-by-side GPIO vs I3C comparison, line-by-line template analysis
    - **Referenced in this document**:
      - [Quantified Similarity Analysis](#quantified-similarity-analysis)
-     - [The Critical Difference](#the-critical-difference-gpio-vs-i3c)
+     - [The Critical Difference](#-the-critical-difference-gpio-vs-i3c)
 
 ### Supporting Documentation
 
@@ -4431,13 +4488,13 @@ This comprehensive document consolidates information from 8 detailed source docu
 
 **Update Triggers**:
 - New protocols added → Update [Scalability](#scalability-adding-new-protocols) section
-- Framework version change → Update [Automation Framework](#automation-framework-architecture)
-- New backups created → Update [PVT Coverage](#pvt-corner-coverage-and-validation)
+- Framework version change → Update [Automation Framework](#-automation-framework-architecture)
+- New backups created → Update [PVT Coverage](#-pvt-corner-coverage-and-validation)
 
 **For Questions**:
-- Framework usage → See [Complete Workflow](#complete-end-to-end-workflow)
+- Framework usage → See [Complete Workflow](#-complete-end-to-end-workflow)
 - Protocol addition → See [Scalability](#scalability-adding-new-protocols)
-- Design patterns → See [Reusable Design Patterns](#reusable-design-patterns)
+- Design patterns → See [Reusable Design Patterns](#-reusable-design-patterns)
 
 ---
 
