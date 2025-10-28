@@ -9,6 +9,8 @@
 **Total Files Analyzed**: 291 dependency files + 213 backup files  
 **Key Finding**: GPIO and I3C differ by exactly **ONE parameter on Line 52** of their templates
 
+**Source Documents**: This consolidated document integrates findings from 8 detailed analysis documents (5,752 lines total). All source documents are preserved in **[archive/source_documents/](archive/source_documents/)** for reference. See the [Appendix](#appendix-cross-reference-to-source-documents) for specific cross-references.
+
 ---
 
 ## 🎯 Reader's Guide (How to Use This Document)
@@ -1206,37 +1208,78 @@ scripts: Read config, execute based on parameters
 
 ## 📚 Appendix: Cross-Reference to Source Documents
 
-This comprehensive document consolidates information from:
+This comprehensive document consolidates information from 8 detailed source documents. All source documents are archived in **[archive/source_documents/](archive/source_documents/)** for detailed reference.
 
-1. **TIER1_FRAMEWORK_ANALYSIS.md** (834 lines)
-   - Referenced in: [Automation Framework](#automation-framework-architecture)
-   - Referenced in: [Complete Workflow](#complete-end-to-end-workflow)
+### Primary Analysis Documents
 
-2. **TIER2_TESTBENCH_ANALYSIS.md** (788 lines)
-   - Referenced in: [Template Architecture](#template-architecture-and-preservation)
-   - Referenced in: [Backup Evidence](#pvt-corner-coverage-and-validation)
+1. **[TIER1_FRAMEWORK_ANALYSIS.md](archive/source_documents/TIER1_FRAMEWORK_ANALYSIS.md)** (834 lines)
+   - **Content**: Complete automation framework architecture, configuration system, workflow stages
+   - **Referenced in this document**: 
+     - [Automation Framework Architecture](#automation-framework-architecture)
+     - [Complete End-to-End Workflow](#complete-end-to-end-workflow)
+     - [Data Flow and Report Generation](#data-flow-and-report-generation)
 
-3. **TIER3_DEPENDENCY_MAP.md** (895 lines)
-   - Referenced in: [Dependency Chain](#complete-dependency-chain)
-   - Referenced in: [File Inventory](#complete-file-inventory)
+2. **[TIER2_TESTBENCH_ANALYSIS.md](archive/source_documents/TIER2_TESTBENCH_ANALYSIS.md)** (788 lines)
+   - **Content**: Template system, parameter substitution mechanism, backup evolution analysis
+   - **Referenced in this document**:
+     - [Template Architecture and Preservation](#template-architecture-and-preservation)
+     - [PVT Corner Coverage and Validation](#pvt-corner-coverage-and-validation)
+     - [Backup Strategy and Reproducibility](#data-flow-and-report-generation)
 
-4. **CRITICAL_FINDINGS.md** (960 lines)
-   - Referenced in: [Code Reuse Strategy](#code-reuse-implementation-strategy)
-   - Referenced in: [Design Patterns](#reusable-design-patterns)
+3. **[TIER3_DEPENDENCY_MAP.md](archive/source_documents/TIER3_DEPENDENCY_MAP.md)** (895 lines)
+   - **Content**: Complete 7-level dependency graph, visual dependency trees, file classification
+   - **Referenced in this document**:
+     - [Complete Dependency Chain](#complete-dependency-chain)
+     - [Technical Reference](#technical-reference)
 
-5. **GPIO_ANALYSIS.md** (483 lines)
-   - Referenced in: [GPIO Implementation](#the-critical-difference-gpio-vs-i3c)
+4. **[CRITICAL_FINDINGS.md](archive/source_documents/CRITICAL_FINDINGS.md)** (960 lines)
+   - **Content**: Single-parameter differentiation analysis, code reuse quantification, design patterns
+   - **Referenced in this document**:
+     - [Code Reuse Implementation Strategy](#code-reuse-implementation-strategy)
+     - [Reusable Design Patterns](#reusable-design-patterns)
+     - [Business Impact](#business-impact-of-the-architecture)
 
-6. **I3C_ANALYSIS.md** (660 lines)
-   - Referenced in: [I3C Implementation](#the-critical-difference-gpio-vs-i3c)
-   - Referenced in: [Actual Performance](#actual-i3c-performance-from-simulation-log)
+### Protocol-Specific Analysis
 
-7. **COMPARISON.md** (544 lines)
-   - Referenced in: [Similarity Analysis](#quantified-similarity-analysis)
-   - Referenced in: [The Critical Difference](#the-critical-difference-gpio-vs-i3c)
+5. **[GPIO_ANALYSIS.md](archive/source_documents/GPIO_ANALYSIS.md)** (483 lines)
+   - **Content**: GPIO-specific implementation details, GPIO dependency mapping
+   - **Referenced in this document**:
+     - [The Critical Difference: GPIO vs I3C](#the-critical-difference-gpio-vs-i3c)
+     - [Quantified Similarity Analysis](#quantified-similarity-analysis)
 
-8. **DEPENDENCY_MIGRATION_STATUS.md** (588 lines)
-   - Referenced in: [File Classification](#complete-file-inventory)
+6. **[I3C_ANALYSIS.md](archive/source_documents/I3C_ANALYSIS.md)** (660 lines)
+   - **Content**: I3C-specific implementation details, actual simulation results
+   - **Referenced in this document**:
+     - [The Critical Difference: GPIO vs I3C](#the-critical-difference-gpio-vs-i3c)
+     - [Circuit-Level Implementation](#circuit-level-implementation)
+
+7. **[COMPARISON.md](archive/source_documents/COMPARISON.md)** (544 lines)
+   - **Content**: Side-by-side GPIO vs I3C comparison, line-by-line template analysis
+   - **Referenced in this document**:
+     - [Quantified Similarity Analysis](#quantified-similarity-analysis)
+     - [The Critical Difference](#the-critical-difference-gpio-vs-i3c)
+
+### Supporting Documentation
+
+8. **[DEPENDENCY_MIGRATION_STATUS.md](archive/source_documents/DEPENDENCY_MIGRATION_STATUS.md)** (588 lines)
+   - **Content**: File classification, access requirements, analysis completion status
+   - **Referenced in this document**:
+     - [Technical Reference](#technical-reference)
+     - [Complete File Inventory](#technical-reference)
+
+### Additional Archive Contents
+
+- **[INDEX.md](archive/source_documents/INDEX.md)**: Original navigation guide (superseded by this document's Reader's Guide)
+- **[TASK_SUMMARY.md](archive/source_documents/TASK_SUMMARY.md)**: Task description and analysis approach
+- **[DEPENDENCY_ANALYSIS_TASK.md](archive/source_documents/DEPENDENCY_ANALYSIS_TASK.md)**: Original task specification
+
+### How to Use the Archive
+
+**For Quick Reference** → Read this consolidated document  
+**For Deep Dive** → Start here, then refer to specific archived documents  
+**For Historical Context** → Review TASK_SUMMARY.md and DEPENDENCY_ANALYSIS_TASK.md
+
+**Complete Archive Guide**: See **[archive/README.md](archive/README.md)** for detailed navigation
 
 ---
 

@@ -94,14 +94,18 @@ tornado_server.log
 # ====================
 # Archives & Backups
 # ====================
-# Archive directories (preserve history locally, not in repo)
-archive/
+# Archive directories for simulation data (preserve history locally, not in repo)
+# NOTE: archive/ directory for documentation is explicitly allowed (see below)
 archive_old_structure/
 history/
 md_archive/
 *.backup
 *.bak
 *~
+
+# Exception: Allow archive/ directory for documentation purposes
+!archive/
+!archive/**
 
 # Backup directories with timestamps
 # NOTE: Initial dependency samples with backups were committed for reference (commit 970b0ff)
