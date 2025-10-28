@@ -7,40 +7,133 @@
 # Simulation Outputs
 # ====================
 # SPICE simulation results - large binary files
+# Exception: Allow all files in backup directories for documentation
 *.fsdb
+!00bkp_*/**/*.fsdb
+!*_bkp/**/*.fsdb
+!bkp_*/**/*.fsdb
 *.fsdb+
+!00bkp_*/**/*.fsdb+
+!*_bkp/**/*.fsdb+
+!bkp_*/**/*.fsdb+
 *.vcd
+!00bkp_*/**/*.vcd
+!*_bkp/**/*.vcd
+!bkp_*/**/*.vcd
 *.wdb
+!00bkp_*/**/*.wdb
+!*_bkp/**/*.wdb
+!bkp_*/**/*.wdb
 *.shm
+!00bkp_*/**/*.shm
+!*_bkp/**/*.shm
+!bkp_*/**/*.shm
 *.trn
+!00bkp_*/**/*.trn
+!*_bkp/**/*.trn
+!bkp_*/**/*.trn
 *.dsn
+!00bkp_*/**/*.dsn
+!*_bkp/**/*.dsn
+!bkp_*/**/*.dsn
 *.ac0
+!00bkp_*/**/*.ac0
+!*_bkp/**/*.ac0
+!bkp_*/**/*.ac0
 *.ac1
+!00bkp_*/**/*.ac1
+!*_bkp/**/*.ac1
+!bkp_*/**/*.ac1
 *.ic
+!00bkp_*/**/*.ic
+!*_bkp/**/*.ic
+!bkp_*/**/*.ic
 *.ic0
+!00bkp_*/**/*.ic0
+!*_bkp/**/*.ic0
+!bkp_*/**/*.ic0
 *.ic1
+!00bkp_*/**/*.ic1
+!*_bkp/**/*.ic1
+!bkp_*/**/*.ic1
 *.mt0
+!00bkp_*/**/*.mt0
+!*_bkp/**/*.mt0
+!bkp_*/**/*.mt0
 *.mt1
+!00bkp_*/**/*.mt1
+!*_bkp/**/*.mt1
+!bkp_*/**/*.mt1
 *.pa0
+!00bkp_*/**/*.pa0
+!*_bkp/**/*.pa0
+!bkp_*/**/*.pa0
 *.pt0
+!00bkp_*/**/*.pt0
+!*_bkp/**/*.pt0
+!bkp_*/**/*.pt0
 *.pt1
+!00bkp_*/**/*.pt1
+!*_bkp/**/*.pt1
+!bkp_*/**/*.pt1
 *.st0
+!00bkp_*/**/*.st0
+!*_bkp/**/*.st0
+!bkp_*/**/*.st0
 *.st1
+!00bkp_*/**/*.st1
+!*_bkp/**/*.st1
+!bkp_*/**/*.st1
 *.raw
+!00bkp_*/**/*.raw
+!*_bkp/**/*.raw
+!bkp_*/**/*.raw
 
 # Simulation logs and temporary files
+# Exception: Allow all files in backup directories (00bkp_*, *_bkp/, bkp_*)
 *.log
+!00bkp_*/**/*.log
+!*_bkp/**/*.log
+!bkp_*/**/*.log
 *.elog
+!00bkp_*/**/*.elog
+!*_bkp/**/*.elog
+!bkp_*/**/*.elog
 *.err
+!00bkp_*/**/*.err
+!*_bkp/**/*.err
+!bkp_*/**/*.err
 *.out
+!00bkp_*/**/*.out
+!*_bkp/**/*.out
+!bkp_*/**/*.out
 *.tmp
+!00bkp_*/**/*.tmp
+!*_bkp/**/*.tmp
+!bkp_*/**/*.tmp
 simulation_log.txt
+!00bkp_*/**/simulation_log.txt
+!*_bkp/**/simulation_log.txt
+!bkp_*/**/simulation_log.txt
 *.timestamp
+!00bkp_*/**/*.timestamp
+!*_bkp/**/*.timestamp
+!bkp_*/**/*.timestamp
 
 # Wave database directories
+# Exception: Allow in backup directories
 *_wdf/
+!00bkp_*/**/*_wdf/
+!*_bkp/**/*_wdf/
+!bkp_*/**/*_wdf/
 *_wdb/
+!00bkp_*/**/*_wdb/
+!*_bkp/**/*_wdb/
+!bkp_*/**/*_wdb/
 .simvision/
+!00bkp_*/**/.simvision/
+!*_bkp/**/.simvision/
+!bkp_*/**/.simvision/
 
 # SpectrRF and ADE results
 *.psfxl/
