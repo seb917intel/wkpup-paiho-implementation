@@ -1,0 +1,7 @@
+type,extraction,corner list
+nom_tt,typical,TT
+full_tt,typical,TT FSG SFG FFG FFAG SSG SSAG
+full_tt_gsgf,typical,TT FSG SFG FFG FFAG SSG SSAG FFG_SSG SSG_FFG
+cross_default,rcworst_CCworst_T rcbest_CCbest_T,FSG SFG FFG_SSG SSG_FFG
+cross_full,rcworst_CCworst_T rcbest_CCbest_T,TT FSG SFG FFG FFAG SSG SSAG
+cross_full_gsgf,rcworst_CCworst_T rcbest_CCbest_T,TT FSG SFG FFG FFAG SSG SSAG FFG_SSG SSG_FFG

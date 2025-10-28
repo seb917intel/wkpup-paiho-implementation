@@ -1,0 +1,3 @@
+sim="/nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/nb_sim/nb_sim.sh"
+sim_pvt="/nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/auto_pvt/ver03/sim_pvt.sh"
+script_path="/nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/auto_pvt/ver03"

@@ -1,0 +1,4 @@
+alias sim 'sh /nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/nb_sim/nb_sim.sh'
+alias sim_pvt 'sh /nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/auto_pvt/ver03/sim_pvt.sh'
+alias nbjob_chk 'nbstatus jobs --target altera_png_normal'
+

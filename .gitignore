@@ -104,9 +104,11 @@ md_archive/
 *~
 
 # Backup directories with timestamps
-00bkp_*/
-*_bkp/
-bkp_*/
+# TEMPORARILY ALLOW dependencies/ backups for initial reference upload
+# Will re-enable after first commit
+# 00bkp_*/
+# *_bkp/
+# bkp_*/
 
 # Cadence library databases (design data - too large and auto-generated)
 **/lib_data/

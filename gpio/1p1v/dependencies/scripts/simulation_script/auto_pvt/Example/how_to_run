@@ -1,0 +1,20 @@
+
+source /nfs/site/disks/km6_io_22/users/paihobon/simulation/simulation_script/alias_param_source/script_alias
+
+
+gen  & run testbench:
+sim_pvt config.cfg gen <please check if the testbench generated is correct then proceed to next step>
+
+sim_pvt config.cfg run (prelay)
+sim_pvt config.cfg run <extraction> (polo)
+
+after all complete, extract and compile:
+sim_pvt config.cfg ext < check the report have all the corner then proceed to next step>
+sim_pvt config.cfg srt
+
+clean up and bkp
+sim_pvt config.cfg bkp
+
+
+you can refer runme.sh for the automated for all flow.
+ 
