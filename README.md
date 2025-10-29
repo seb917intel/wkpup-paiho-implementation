@@ -4,8 +4,20 @@ Alternative implementation of WKPUP (Wake-up) SPICE simulation framework for I3C
 
 ## 📚 Documentation
 
-### Primary Documentation
-**[COMPREHENSIVE_ANALYSIS.md](COMPREHENSIVE_ANALYSIS.md)** - Complete consolidated analysis  
+### 🎯 START HERE: Complete Reconciliation Analysis
+**[EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md)** - Complete wkpup vs wkpup2 comparison ⭐  
+→ 14 documents, 224 pages of comprehensive analysis  
+→ Critical findings: ver02 vs ver03 mismatch, +11% code inflation  
+→ **ONE LINE FIX** identified with validation plan  
+→ Read time: 20 minutes
+
+**[RECONCILIATION_INDEX.md](RECONCILIATION_INDEX.md)** - Navigation guide to all 14 deliverables  
+→ Framework documents (baseline references)  
+→ Actual comparison documents (both repositories)  
+→ Role-based quick starts
+
+### Primary wkpup2 Baseline Documentation
+**[COMPREHENSIVE_ANALYSIS.md](COMPREHENSIVE_ANALYSIS.md)** - wkpup2 baseline analysis  
 → Single master document with all analysis findings  
 → Includes GPIO vs I3C differences explicitly highlighted  
 → Role-based reading paths (10 min to 2 hours)
@@ -81,13 +93,18 @@ See **COMPREHENSIVE_ANALYSIS.md** for complete details.
 
 ## Related Repositories
 
-- Main Implementation: [wkpup-simulation](https://github.com/seb917intel/wkpup-simulation)
+- **wkpup Automation**: [wkpup-simulation](https://github.com/seb917intel/wkpup-simulation)  
+  → Current automation system with web UI  
+  → **Status**: Analyzed and compared (see EXECUTIVE_SUMMARY.md)  
+  → **Finding**: Uses ver02 instead of ver03 (ONE LINE FIX needed)
 
 ## Author
 
 **Circuit Implementation**: Pai Ho  
 **Repository & Analysis**: Sebastian Chin (seb917intel)  
-**Analysis Date**: October 28, 2025
+**Baseline Analysis Date**: October 28, 2025  
+**Reconciliation Analysis Date**: October 29, 2025  
+**Status**: ✅ Complete comparison of both repositories
 
 ## Usage
 
