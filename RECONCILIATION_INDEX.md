@@ -5,8 +5,9 @@
 This index provides a **navigation guide** to all reconciliation documentation created for comparing wkpup automation against the wkpup2 baseline.
 
 **Date Created**: October 28, 2025  
-**Total Deliverables**: 11 documents  
-**Status**: ✅ ALL DELIVERABLES COMPLETE
+**Updated**: October 29, 2025 (Actual comparison complete)  
+**Total Deliverables**: 14 documents (11 framework + 3 actual analysis)  
+**Status**: ✅ COMPREHENSIVE ANALYSIS COMPLETE
 
 ---
 
@@ -397,6 +398,7 @@ CUSTOM_PVT_FEASIBILITY.md (Extensibility)
 
 | Document | Pages | Read Time | Use Case |
 |----------|-------|-----------|----------|
+| **Framework Documents (wkpup2 baseline)** |
 | TESTBENCH_GENERATION_GAPS.md | 28 | 45 min | gen_tb.pl comparison |
 | SIMULATION_FLOW_GAPS.md | 24 | 35 min | Workflow comparison |
 | CORNER_MATRIX_GAPS.md | 21 | 30 min | PVT matrix comparison |
@@ -407,7 +409,43 @@ CUSTOM_PVT_FEASIBILITY.md (Extensibility)
 | FIX_ROADMAP.md | 11 | 20 min | Implementation plan |
 | REGRESSION_PREVENTION.md | 11 | 20 min | Maintain parity |
 | CUSTOM_PVT_FEASIBILITY.md | 14 | 25 min | Extensibility |
-| **TOTAL** | **160** | **4-5 hrs** | **Complete guide** |
+| **Actual Comparison (both repositories)** |
+| ✨ ACTUAL_COMPARISON_FINDINGS.md | 19 | 30 min | Complete deviation analysis |
+| ✨ DETAILED_SCRIPT_COMPARISON.md | 16 | 30 min | Line-by-line script diff |
+| ✨ EXECUTIVE_SUMMARY.md | 17 | 20 min | Action plan & recommendations |
+| **Navigation** |
+| RECONCILIATION_INDEX.md | 12 | 15 min | This document |
+| **TOTAL** | **224** | **6 hrs** | **Complete suite** |
+
+---
+
+## ✨ NEW: Actual Comparison Documents (October 29, 2025)
+
+### ACTUAL_COMPARISON_FINDINGS.md (19 KB)
+**Purpose**: Real comparison between wkpup-simulation and wkpup2 repositories  
+**Key Findings**:
+- ❌ wkpup uses ver02 instead of ver03 (missing 45 lines)
+- ❌ +208 lines of code changes (+11.1% inflation)
+- ✅ Path mismatch bug fixed in latest version
+- ✅ Web application architecture documented
+
+### DETAILED_SCRIPT_COMPARISON.md (16 KB)
+**Purpose**: Line-by-line diff analysis of all scripts  
+**Key Content**:
+- gen_tb.pl ver02 vs ver03 diff (45 lines missing vccn_vcctx support)
+- sim_pvt.sh vs sim_pvt_local.sh (+96 lines, +16.3%)
+- pvt_loop.sh vs local_pvt_loop.sh (+157 lines, +21.7%, 1,342-line diff!)
+- core_func() analysis (testbench generation)
+- Enhancement categorization
+
+### EXECUTIVE_SUMMARY.md (17 KB)
+**Purpose**: Complete analysis summary with actionable recommendations  
+**Key Sections**:
+- 🚨 Critical findings (P0 issues)
+- ✅ Enhancement analysis (temperature selection, per-temp voltages)
+- 📋 7-phase action plan with timeline
+- 📈 Success metrics and validation strategy
+- 🎯 ONE LINE FIX identified (script_path ver02→ver03)
 
 ---
 
@@ -416,18 +454,22 @@ CUSTOM_PVT_FEASIBILITY.md (Extensibility)
 **This documentation suite provides everything needed to**:
 1. ✅ Understand wkpup2 baseline comprehensively
 2. ✅ Systematically compare wkpup automation
-3. ✅ Validate all deviations
-4. ✅ Implement fixes in correct order
-5. ✅ Prevent future regressions
-6. ✅ Assess extensibility
+3. ✅ **NEW**: Complete actual comparison with both repositories
+4. ✅ **NEW**: Identify all critical deviations (ver02 vs ver03, +11% code inflation)
+5. ✅ **NEW**: Actionable fix recommendations (ONE LINE FIX + validation plan)
+6. ✅ Validate all deviations
+7. ✅ Implement fixes in correct order
+8. ✅ Prevent future regressions
+9. ✅ Assess extensibility
 
-**Start with INCONSISTENCY_ANALYSIS.md and work through the framework systematically.**
+**Start with EXECUTIVE_SUMMARY.md for complete analysis and action plan, or read framework documents for detailed baseline reference.**
 
 **Questions? See Support and Escalation section above.**
 
 ---
 
-**Document Index Version**: 1.0  
-**Date**: October 28, 2025  
-**Status**: ✅ COMPLETE DOCUMENTATION SUITE  
+**Document Index Version**: 2.0  
+**Date**: October 29, 2025  
+**Update**: Actual comparison complete - 14 documents, 224 pages, complete analysis  
+**Status**: ✅ COMPREHENSIVE RECONCILIATION ANALYSIS COMPLETE  
 **Total Deliverables**: 11 documents, 160+ pages
