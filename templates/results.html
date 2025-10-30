@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WKPUP Simulation - Results</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>WKPUP Simulation Results</h1>
+            <p class="subtitle">Wrapper for Pai Ho's Validated wkpup2 Core</p>
+        </header>
+
+        <nav>
+            <a href="/">Submit Job</a>
+            <a href="/results" class="active">View Results</a>
+            <a href="/api/queue/status" target="_blank">Queue Status</a>
+        </nav>
+
+        <main>
+            {% if job %}
+                <!-- Single job view -->
+                <section class="job-details">
+                    <h2>Job Details: {{ job['job_id'][:8] }}...</h2>
+                    
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="label">Status:</span>
+                            <span class="value status-{{ job['status'] }}">{{ job['status'].upper() }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Mode:</span>
+                            <span class="value">{{ job['mode'] }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">VCCN:</span>
+                            <span class="value">{{ job['vccn'] }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Condition:</span>
+                            <span class="value">{{ job['condition'] }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Simulator:</span>
+                            <span class="value">{{ job['simulator'] }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">Created:</span>
+                            <span class="value">{{ job['created_at'] }}</span>
+                        </div>
+                        {% if job['elapsed_seconds'] %}
+                        <div class="detail-item">
+                            <span class="label">Elapsed Time:</span>
+                            <span class="value">{{ "%.1f"|format(job['elapsed_seconds']) }} seconds</span>
+                        </div>
+                        {% end %}
+                        {% if job['error_message'] %}
+                        <div class="detail-item full-width">
+                            <span class="label">Error:</span>
+                            <span class="value error">{{ job['error_message'] }}</span>
+                        </div>
+                        {% end %}
+                    </div>
+
+                    {% if job['completed_stages'] %}
+                    <div class="stages">
+                        <h3>Completed Stages</h3>
+                        <div class="stage-list">
+                            {% for stage in json.loads(job['completed_stages']) %}
+                            <span class="stage-badge">{{ stage }}</span>
+                            {% end %}
+                        </div>
+                    </div>
+                    {% end %}
+                </section>
+
+                {% if results %}
+                <section class="results-section">
+                    <h2>Simulation Results ({{ len(results) }} corners)</h2>
+                    
+                    {% if summary %}
+                    <div class="summary-cards">
+                        {% if 'del_rr' in summary['measurements'] %}
+                        <div class="summary-card">
+                            <div class="summary-label">Rise-Rise Delay</div>
+                            <div class="summary-values">
+                                <div>Min: {{ "%.2e"|format(summary['measurements']['del_rr']['min']) }}s</div>
+                                <div>Max: {{ "%.2e"|format(summary['measurements']['del_rr']['max']) }}s</div>
+                                <div>Avg: {{ "%.2e"|format(summary['measurements']['del_rr']['avg']) }}s</div>
+                            </div>
+                        </div>
+                        {% end %}
+                        
+                        {% if 'del_ff' in summary['measurements'] %}
+                        <div class="summary-card">
+                            <div class="summary-label">Fall-Fall Delay</div>
+                            <div class="summary-values">
+                                <div>Min: {{ "%.2e"|format(summary['measurements']['del_ff']['min']) }}s</div>
+                                <div>Max: {{ "%.2e"|format(summary['measurements']['del_ff']['max']) }}s</div>
+                                <div>Avg: {{ "%.2e"|format(summary['measurements']['del_ff']['avg']) }}s</div>
+                            </div>
+                        </div>
+                        {% end %}
+                    </div>
+                    {% end %}
+                    
+                    <div class="table-controls">
+                        <input type="text" id="searchResults" placeholder="Search results..." class="search-box">
+                        <button onclick="exportToCSV()" class="btn btn-secondary">Export CSV</button>
+                    </div>
+                    
+                    <div class="table-wrapper">
+                        <table class="results-table" id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortTable(0)">Corner</th>
+                                    <th onclick="sortTable(1)">Extraction</th>
+                                    <th onclick="sortTable(2)">Temperature</th>
+                                    <th onclick="sortTable(3)">Voltage</th>
+                                    <th onclick="sortTable(4)">del_rr</th>
+                                    <th onclick="sortTable(5)">del_ff</th>
+                                    <th onclick="sortTable(6)">Power</th>
+                                    <th onclick="sortTable(7)">Current</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr>
+                                    <td>{{ result.get('corner', 'N/A') }}</td>
+                                    <td>{{ result.get('extraction', 'N/A') }}</td>
+                                    <td>{{ result.get('temperature', 'N/A') }}</td>
+                                    <td>{{ result.get('voltage_combo', 'N/A') }}</td>
+                                    <td>{{ "%.3e"|format(result['del_rr']) if result.get('del_rr') else 'N/A' }}</td>
+                                    <td>{{ "%.3e"|format(result['del_ff']) if result.get('del_ff') else 'N/A' }}</td>
+                                    <td>{{ "%.3e"|format(result['power']) if result.get('power') else 'N/A' }}</td>
+                                    <td>{{ "%.3e"|format(result['current']) if result.get('current') else 'N/A' }}</td>
+                                </tr>
+                                {% end %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                {% else %}
+                <section class="no-results">
+                    <p>No results available yet. Job status: {{ job['status'] }}</p>
+                    {% if job['status'] == 'running' %}
+                    <button onclick="location.reload()" class="btn btn-primary">Refresh</button>
+                    {% end %}
+                </section>
+                {% end %}
+
+            {% elif jobs %}
+                <!-- Job list view -->
+                <section class="job-list">
+                    <h2>Recent Jobs</h2>
+                    
+                    <div class="table-wrapper">
+                        <table class="jobs-table">
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Status</th>
+                                    <th>Mode</th>
+                                    <th>VCCN</th>
+                                    <th>User</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in jobs %}
+                                <tr>
+                                    <td><a href="/results/{{ job['job_id'] }}">{{ job['job_id'][:8] }}...</a></td>
+                                    <td><span class="status-badge status-{{ job['status'] }}">{{ job['status'] }}</span></td>
+                                    <td>{{ job['mode'] }}</td>
+                                    <td>{{ job['vccn'] }}</td>
+                                    <td>{{ job.get('user', 'N/A') }}</td>
+                                    <td>{{ job['created_at'][:19] if job.get('created_at') else 'N/A' }}</td>
+                                    <td>
+                                        <a href="/results/{{ job['job_id'] }}" class="btn btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% end %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            {% end %}
+        </main>
+
+        <footer>
+            <p>&copy; 2025 WKPUP Reconciliation Project | Zero modifications to Pai Ho's core files</p>
+        </footer>
+    </div>
+
+    <script>
+        // Search functionality
+        document.getElementById('searchResults')?.addEventListener('keyup', function() {
+            const filter = this.value.toUpperCase();
+            const table = document.getElementById('resultsTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    const cell = cells[j];
+                    if (cell.textContent.toUpperCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                row.style.display = found ? '' : 'none';
+            }
+        });
+
+        // Table sorting
+        function sortTable(columnIndex) {
+            const table = document.getElementById('resultsTable');
+            const rows = Array.from(table.rows).slice(1);
+            const isAscending = table.dataset.sortOrder !== 'asc';
+            
+            rows.sort((a, b) => {
+                const aVal = a.cells[columnIndex].textContent;
+                const bVal = b.cells[columnIndex].textContent;
+                
+                // Try numeric comparison first
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return isAscending ? aNum - bNum : bNum - aNum;
+                }
+                
+                // String comparison
+                return isAscending ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+            
+            rows.forEach(row => table.appendChild(row));
+            table.dataset.sortOrder = isAscending ? 'asc' : 'desc';
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            const table = document.getElementById('resultsTable');
+            let csv = [];
+            
+            // Headers
+            const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent);
+            csv.push(headers.join(','));
+            
+            // Rows
+            table.querySelectorAll('tbody tr').forEach(row => {
+                if (row.style.display !== 'none') {
+                    const values = Array.from(row.querySelectorAll('td')).map(td => 
+                        '"' + td.textContent.replace(/"/g, '""') + '"'
+                    );
+                    csv.push(values.join(','));
+                }
+            });
+            
+            // Download
+            const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'simulation_results.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
