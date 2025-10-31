@@ -1,6 +1,9 @@
 """
 Simulation orchestration module
 Handles simulation lifecycle: gen, run, extract, sort, backup
+
+REFACTORED: Now uses PaiHoExecutor wrapper to call Pai Ho's original ver03 scripts
+instead of custom sim_pvt_local.sh scripts.
 """
 
 import os
@@ -9,15 +12,22 @@ import shutil
 from datetime import datetime
 from typing import Dict, Optional, List
 from pathlib import Path
+import logging
 
 # Import configuration
 from config import get_voltage_domain_path, get_project_root, REPO_ROOT
+
+# Import PaiHoExecutor wrapper
+from paiho_executor import PaiHoExecutor
 
 # Import voltage domain manager
 from voltage_domain_manager import (
     ensure_voltage_domain, 
     get_available_voltage_domains
 )
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Valid PVT corner names
 VALID_CORNERS = [
@@ -363,203 +373,218 @@ def update_config_file(work_dir: str, corners: List[str], temperatures: List[str
     return True
 
 
-def run_generation_stage(work_dir: str) -> bool:
+def run_generation_stage(work_dir: str, project: str = 'gpio', voltage_domain: str = '1p1v') -> bool:
     """
-    Run generation stage (gen_tb.pl creates testbenches)
-    Requires Cheetah environment to be setup before webapp start
+    Run generation stage using PaiHoExecutor wrapper
+    Calls Pai Ho's ver03/sim_pvt.sh script with 'gen' stage
     
     Args:
-        work_dir: Working directory path
+        work_dir: Working directory path containing config.cfg
+        project: Project name ('gpio' or 'i3c')
+        voltage_domain: Voltage domain (e.g., '1p1v')
         
     Returns:
         True if successful, False otherwise
     """
-    print("🔧 Running generation stage...")
+    logger.info("🔧 Running generation stage (via PaiHoExecutor)...")
     
     try:
-        # Run generation (Cheetah env must be already set up)
-        result = subprocess.run(
-            ['bash', 'sim_pvt_local.sh', 'config.cfg', 'gen'],
-            cwd=work_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=600  # 10 minute timeout
+        # Initialize PaiHoExecutor with proper paths
+        executor = PaiHoExecutor(
+            project_root=str(REPO_ROOT),
+            project=project,
+            voltage_domain=voltage_domain
         )
         
-        if result.returncode != 0:
-            print(f"❌ Generation failed: {result.stderr}")
+        # Run generation stage: bash ver03/sim_pvt.sh config.cfg gen
+        result = executor.run_generation(work_dir=work_dir, config_file='config.cfg')
+        
+        if result['success']:
+            logger.info("  ✓ Generation completed successfully")
+            return True
+        else:
+            logger.error(f"  ❌ Generation failed: {result['stderr'][:200]}")
             return False
         
-        print("  ✓ Generation completed")
-        return True
-        
-    except subprocess.TimeoutExpired:
-        print("❌ Generation timed out")
-        return False
     except Exception as e:
-        print(f"❌ Generation error: {e}")
+        logger.exception(f"❌ Generation error: {e}")
         return False
 
 
-def run_submission_stage(work_dir: str) -> str:
+def run_submission_stage(work_dir: str, project: str = 'gpio', voltage_domain: str = '1p1v') -> Optional[str]:
     """
-    Run submission stage (submit jobs to NetBatch)
-    Must be run with Cheetah environment setup
+    Run submission stage using PaiHoExecutor wrapper
+    Calls Pai Ho's ver03/sim_pvt.sh script with 'run' stage
     
     Args:
         work_dir: Working directory path
+        project: Project name ('gpio' or 'i3c')
+        voltage_domain: Voltage domain (e.g., '1p1v')
         
     Returns:
         Path to job_log.txt if successful, None otherwise
     """
-    print("🚀 Running submission stage...")
+    logger.info("🚀 Running submission stage (via PaiHoExecutor)...")
     
     try:
-        # Run submission (Cheetah env is already active from webapp launcher)
-        # Do NOT re-run cth_psetup - it will fail if already in Cheetah shell
-        result = subprocess.run(
-            ['bash', 'sim_pvt_local.sh', 'config.cfg', 'run'],
-            cwd=work_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=1200  # 20 minute timeout
+        # Initialize PaiHoExecutor
+        executor = PaiHoExecutor(
+            project_root=str(REPO_ROOT),
+            project=project,
+            voltage_domain=voltage_domain
         )
         
-        if result.returncode != 0:
-            print(f"❌ Submission failed: {result.stderr}")
-            return None
+        # Run submission stage: bash ver03/sim_pvt.sh config.cfg run
+        result = executor.run_submission(work_dir=work_dir, config_file='config.cfg')
         
-        job_log_path = os.path.join(work_dir, "job_log.txt")
-        
-        if os.path.exists(job_log_path):
-            print("  ✓ Submission completed")
-            return job_log_path
+        if result['success']:
+            job_log_path = os.path.join(work_dir, "job_log.txt")
+            
+            if os.path.exists(job_log_path):
+                logger.info("  ✓ Submission completed")
+                return job_log_path
+            else:
+                logger.error("❌ job_log.txt not found after submission")
+                return None
         else:
-            print("❌ job_log.txt not found after submission")
+            logger.error(f"  ❌ Submission failed: {result['stderr'][:200]}")
             return None
         
-    except subprocess.TimeoutExpired:
-        print("❌ Submission timed out")
-        return None
     except Exception as e:
-        print(f"❌ Submission error: {e}")
+        logger.exception(f"❌ Submission error: {e}")
         return None
 
 
-def run_extraction_stage(work_dir: str) -> bool:
+def run_extraction_stage(work_dir: str, project: str = 'gpio', voltage_domain: str = '1p1v') -> bool:
     """
-    Run extraction stage (local_extract.sh)
+    Run extraction stage using PaiHoExecutor wrapper
+    Calls Pai Ho's ver03/sim_pvt.sh script with 'ext' stage
     
     Args:
         work_dir: Working directory path
+        project: Project name ('gpio' or 'i3c')
+        voltage_domain: Voltage domain (e.g., '1p1v')
         
     Returns:
         True if successful
     """
-    print("📊 Running extraction stage...")
+    logger.info("📊 Running extraction stage (via PaiHoExecutor)...")
     
     try:
-        result = subprocess.run(
-            ['bash', 'sim_pvt_local.sh', 'config.cfg', 'ext'],
-            cwd=work_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=600  # 10 minute timeout
+        # Initialize PaiHoExecutor
+        executor = PaiHoExecutor(
+            project_root=str(REPO_ROOT),
+            project=project,
+            voltage_domain=voltage_domain
         )
         
-        if result.returncode != 0:
-            print(f"⚠️ Extraction had warnings: {result.stderr}")
-            # Don't fail - extraction might partially succeed
+        # Run extraction stage: bash ver03/sim_pvt.sh config.cfg ext
+        result = executor.run_extraction(work_dir=work_dir, config_file='config.cfg')
         
-        print("  ✓ Extraction completed")
-        return True
+        if result['success']:
+            logger.info("  ✓ Extraction completed")
+            return True
+        else:
+            # Don't fail completely - extraction might partially succeed
+            logger.warning(f"  ⚠️ Extraction had warnings: {result['stderr'][:200]}")
+            return True  # Allow partial success
         
-    except subprocess.TimeoutExpired:
-        print("❌ Extraction timed out")
-        return False
     except Exception as e:
-        print(f"❌ Extraction error: {e}")
+        logger.exception(f"❌ Extraction error: {e}")
         return False
 
 
-def run_sorting_stage(work_dir: str) -> bool:
+def run_sorting_stage(work_dir: str, project: str = 'gpio', voltage_domain: str = '1p1v') -> bool:
     """
-    Run sorting stage (compile reports)
+    Run sorting stage using PaiHoExecutor wrapper
+    Calls Pai Ho's ver03/sim_pvt.sh script with 'srt' stage
     
     Args:
         work_dir: Working directory path
+        project: Project name ('gpio' or 'i3c')
+        voltage_domain: Voltage domain (e.g., '1p1v')
         
     Returns:
         True if successful
     """
-    print("📋 Running sorting stage...")
+    logger.info("📋 Running sorting stage (via PaiHoExecutor)...")
     
     try:
-        result = subprocess.run(
-            ['bash', 'sim_pvt_local.sh', 'config.cfg', 'srt'],
-            cwd=work_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=300  # 5 minute timeout
+        # Initialize PaiHoExecutor
+        executor = PaiHoExecutor(
+            project_root=str(REPO_ROOT),
+            project=project,
+            voltage_domain=voltage_domain
         )
         
-        # Check for creport.txt
-        creport_path = os.path.join(work_dir, "report", "creport.txt")
+        # Run sorting stage: bash ver03/sim_pvt.sh config.cfg srt
+        result = executor.run_sorting(work_dir=work_dir, config_file='config.cfg')
         
-        if not os.path.exists(creport_path):
-            print(f"❌ creport.txt not created")
+        if result['success']:
+            # Check for creport.txt
+            creport_path = os.path.join(work_dir, "report", "creport.txt")
+            
+            if not os.path.exists(creport_path):
+                logger.error(f"❌ creport.txt not created")
+                return False
+            
+            logger.info(f"  ✓ Sorting completed, creport at: {creport_path}")
+            return True
+        else:
+            logger.error(f"  ❌ Sorting failed: {result['stderr'][:200]}")
             return False
         
-        print(f"  ✓ Sorting completed, creport at: {creport_path}")
-        return True
-        
-    except subprocess.TimeoutExpired:
-        print("❌ Sorting timed out")
-        return False
     except Exception as e:
-        print(f"❌ Sorting error: {e}")
+        logger.exception(f"❌ Sorting error: {e}")
         return False
 
 
-def run_backup_stage(work_dir: str) -> Optional[str]:
+def run_backup_stage(work_dir: str, project: str = 'gpio', voltage_domain: str = '1p1v') -> Optional[str]:
     """
-    Run backup stage (create timestamped backup)
+    Run backup stage using PaiHoExecutor wrapper
+    Calls Pai Ho's ver03/sim_pvt.sh script with 'bkp' stage
     
     Args:
         work_dir: Working directory path
+        project: Project name ('gpio' or 'i3c')
+        voltage_domain: Voltage domain (e.g., '1p1v')
         
     Returns:
         Path to backup directory if successful, None otherwise
     """
-    print("💾 Running backup stage...")
+    logger.info("💾 Running backup stage (via PaiHoExecutor)...")
     
     try:
-        result = subprocess.run(
-            ['bash', 'sim_pvt_local.sh', 'config.cfg', 'bkp'],
-            cwd=work_dir,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=600  # 10 minute timeout
+        # Initialize PaiHoExecutor
+        executor = PaiHoExecutor(
+            project_root=str(REPO_ROOT),
+            project=project,
+            voltage_domain=voltage_domain
         )
         
-        # Find backup directory (00bkp_YYYYMMDDHHMM) - created in work_dir itself
-        backup_dirs = [d for d in os.listdir(work_dir) if d.startswith('00bkp_')]
+        # Run backup stage: bash ver03/sim_pvt.sh config.cfg bkp
+        result = executor.run_backup(work_dir=work_dir, config_file='config.cfg')
         
-        if not backup_dirs:
-            print(f"❌ No backup directory created in {work_dir}")
+        if result['success']:
+            # Find backup directory (00bkp_YYYYMMDDHHMM)
+            backup_dirs = [d for d in os.listdir(work_dir) if d.startswith('00bkp_')]
+            
+            if not backup_dirs:
+                logger.error(f"❌ No backup directory created in {work_dir}")
+                return None
+            
+            # Get most recent backup
+            backup_dir = os.path.join(work_dir, sorted(backup_dirs)[-1])
+            
+            logger.info(f"  ✓ Backup completed at: {backup_dir}")
+            return backup_dir
+        else:
+            logger.error(f"  ❌ Backup failed: {result['stderr'][:200]}")
             return None
         
-        # Get most recent backup
-        backup_dir = os.path.join(work_dir, sorted(backup_dirs)[-1])
-        
-        print(f"  ✓ Backup completed at: {backup_dir}")
-        return backup_dir
-        
-    except subprocess.TimeoutExpired:
-        print("❌ Backup timed out")
-        return None
     except Exception as e:
-        print(f"❌ Backup error: {e}")
+        logger.exception(f"❌ Backup error: {e}")
+        return None
         return None
 
 

@@ -420,9 +420,17 @@ class BackgroundMonitor(object):
         from websocket_handler import SimulationWebSocket
         
         try:
-            # Update state to extracting
+            # Get simulation details including project and voltage_domain
             conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
             c = conn.cursor()
+            c.execute('SELECT * FROM simulations WHERE sim_id = ?', (sim_id,))
+            sim = dict(c.fetchone())
+            
+            project = sim['project']
+            voltage_domain = sim['voltage_domain']
+            
+            # Update state to extracting
             c.execute('UPDATE simulations SET state = ? WHERE sim_id = ?', ('extracting', sim_id))
             conn.commit()
             conn.close()
@@ -436,7 +444,7 @@ class BackgroundMonitor(object):
             })
             
             print("[AUTO-EXTRACT] [{0}] Stage 1/3: Running extraction...".format(sim_id))
-            ext_result = run_extraction_stage(work_dir)
+            ext_result = run_extraction_stage(work_dir, project=project, voltage_domain=voltage_domain)
             
             if not ext_result:
                 raise Exception("Extraction stage failed")
@@ -456,7 +464,7 @@ class BackgroundMonitor(object):
             })
             
             print("[AUTO-EXTRACT] [{0}] Stage 2/3: Running sorting...".format(sim_id))
-            srt_result = run_sorting_stage(work_dir)
+            srt_result = run_sorting_stage(work_dir, project=project, voltage_domain=voltage_domain)
             
             if not srt_result:
                 raise Exception("Sorting stage failed")
@@ -476,7 +484,7 @@ class BackgroundMonitor(object):
             })
             
             print("[AUTO-EXTRACT] [{0}] Stage 3/3: Running backup...".format(sim_id))
-            backup_dir = run_backup_stage(work_dir)
+            backup_dir = run_backup_stage(work_dir, project=project, voltage_domain=voltage_domain)
             
             if not backup_dir:
                 raise Exception("Backup stage failed")

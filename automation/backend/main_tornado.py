@@ -831,7 +831,7 @@ class SubmitHandler(tornado.web.RequestHandler):
             
             # Run generation stage
             print(f"[{sim_id}] Running generation stage...")
-            gen_result = run_generation_stage(work_dir)
+            gen_result = run_generation_stage(work_dir, project=project, voltage_domain=voltage_domain)
             if gen_result:
                 print(f"[{sim_id}] Generation complete")
             else:
@@ -839,7 +839,7 @@ class SubmitHandler(tornado.web.RequestHandler):
             
             # Run submission stage
             print(f"[{sim_id}] Running submission stage...")
-            job_log_path = run_submission_stage(work_dir)
+            job_log_path = run_submission_stage(work_dir, project=project, voltage_domain=voltage_domain)
             if job_log_path:
                 print(f"[{sim_id}] Submission complete")
                 
@@ -1194,6 +1194,8 @@ class ExtractHandler(tornado.web.RequestHandler):
         
         sim = dict(row)
         work_dir = sim['work_dir']
+        project = sim['project']
+        voltage_domain = sim['voltage_domain']
         
         try:
             # Run extraction stages
@@ -1201,7 +1203,7 @@ class ExtractHandler(tornado.web.RequestHandler):
             conn.commit()
             
             print(f"[{sim_id}] Running extraction...")
-            ext_result = run_extraction_stage(work_dir)
+            ext_result = run_extraction_stage(work_dir, project=project, voltage_domain=voltage_domain)
             if not ext_result:
                 raise Exception(f"Extraction failed")
             
@@ -1209,7 +1211,7 @@ class ExtractHandler(tornado.web.RequestHandler):
             conn.commit()
             
             print(f"[{sim_id}] Running sorting...")
-            srt_result = run_sorting_stage(work_dir)
+            srt_result = run_sorting_stage(work_dir, project=project, voltage_domain=voltage_domain)
             if not srt_result:
                 raise Exception(f"Sorting failed")
             
@@ -1217,7 +1219,7 @@ class ExtractHandler(tornado.web.RequestHandler):
             conn.commit()
             
             print(f"[{sim_id}] Running backup...")
-            backup_dir = run_backup_stage(work_dir)
+            backup_dir = run_backup_stage(work_dir, project=project, voltage_domain=voltage_domain)
             if not backup_dir:
                 raise Exception(f"Backup failed")
             
