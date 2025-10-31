@@ -133,7 +133,12 @@ def create_work_directory(project: str, voltage_domain: str, sim_id: str) -> str
 
 def copy_simulation_files(work_dir: str, project: str, voltage_domain: str, custom_template_path: Optional[str] = None) -> bool:
     """
-    Copy necessary files from project directory to work directory
+    Copy ONLY necessary files for Pai Ho's ver03 scripts to work
+    
+    Per ULTIMATE_MASTER_PLAN.md: Minimal file copying, NO custom scripts
+    Pai Ho's sim_pvt.sh only needs:
+    1. config.cfg (will be created/modified by update_config_file)
+    2. template/ directory with sim_tx.sp circuit netlist
     
     Args:
         work_dir: Working directory path
@@ -144,67 +149,52 @@ def copy_simulation_files(work_dir: str, project: str, voltage_domain: str, cust
     Returns:
         True if successful, False otherwise
     """
-    # Use repository paths instead of hardcoded NFS paths
+    logger.info(f"📋 Setting up work directory for Pai Ho's ver03 scripts...")
+    
+    # Use repository paths
     source_dir = str(get_voltage_domain_path(project, voltage_domain))
     
-    files_to_copy = [
-        "config.cfg",
-        "runme.sh"
-    ]
-    
-    # Check for local scripts (if they exist)
-    optional_files = [
-        "sim_pvt_local.sh",
-        "local_pvt_loop.sh",
-        "local_extract.sh",
-        "local_move.sh",
-        "runme_local.sh"
-    ]
-    
     try:
-        # Copy required files
-        for filename in files_to_copy:
-            src = os.path.join(source_dir, filename)
-            dst = os.path.join(work_dir, filename)
-            if os.path.exists(src):
-                shutil.copy2(src, dst)
-                print(f"  ✓ Copied {filename}")
-            else:
-                print(f"  ⚠️ File not found: {src}")
+        # Create config.cfg from template (will be modified by update_config_file)
+        config_src = os.path.join(source_dir, "config.cfg")
+        config_dst = os.path.join(work_dir, "config.cfg")
         
-        # Copy optional local scripts if they exist
-        for filename in optional_files:
-            src = os.path.join(source_dir, filename)
-            dst = os.path.join(work_dir, filename)
-            if os.path.exists(src):
-                shutil.copy2(src, dst)
-                print(f"  ✓ Copied {filename}")
+        if os.path.exists(config_src):
+            shutil.copy2(config_src, config_dst)
+            logger.info(f"  ✓ Copied config.cfg template")
+        else:
+            # Create minimal config.cfg if not found
+            logger.warning(f"  ⚠️ config.cfg not found, will be created by update_config_file")
         
-        # Copy dependencies directory
-        deps_src = os.path.join(source_dir, "dependencies")
-        if os.path.exists(deps_src):
-            deps_dst = os.path.join(work_dir, "dependencies")
-            shutil.copytree(deps_src, deps_dst)
-            print(f"  ✓ Copied dependencies/ directory")
-        
-        # Copy template directory
+        # Copy template directory (contains circuit netlist sim_tx.sp)
         if custom_template_path and os.path.exists(custom_template_path):
             # Use custom template
             template_dst = os.path.join(work_dir, "template")
-            shutil.copytree(custom_template_path, template_dst)
-            print(f"  ✓ Copied CUSTOM template/ from: {custom_template_path}")
+            if os.path.exists(custom_template_path):
+                shutil.copytree(custom_template_path, template_dst, dirs_exist_ok=True)
+                logger.info(f"  ✓ Copied CUSTOM template/ from: {custom_template_path}")
         else:
-            # Use default template
+            # Use default template from source
             template_src = os.path.join(source_dir, "template")
             if os.path.exists(template_src):
                 template_dst = os.path.join(work_dir, "template")
-                shutil.copytree(template_src, template_dst)
-                print(f"  ✓ Copied default template/ directory")
+                shutil.copytree(template_src, template_dst, dirs_exist_ok=True)
+                logger.info(f"  ✓ Copied default template/ directory")
+            else:
+                logger.error(f"  ❌ template/ directory not found at: {template_src}")
+                return False
         
+        # NO copying of:
+        # - sim_pvt_local.sh (custom, we use PaiHoExecutor now)
+        # - local_pvt_loop.sh (custom)  
+        # - dependencies/ (huge, referenced from original location)
+        # - runme.sh (not needed, we call sim_pvt.sh directly)
+        
+        logger.info(f"  ✓ Work directory setup complete (minimal files only)")
         return True
         
     except Exception as e:
-        print(f"❌ Error copying files: {e}")
+        logger.exception(f"❌ Error setting up work directory: {e}")
         return False
 
 
