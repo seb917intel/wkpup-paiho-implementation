@@ -1,0 +1,23 @@
+# WKP Automation WebApp - Python Dependencies
+# Phase 1: Backend Core (Python 3.6 Compatible Versions)
+
+# FastAPI and server (older versions for Python 3.6)
+fastapi==0.68.2
+uvicorn==0.15.0
+starlette==0.14.2
+
+# Database (Python 3.6 compatible)
+sqlalchemy==1.4.46
+aiosqlite==0.17.0
+
+# Background tasks (Phase 2 - placeholder for now)
+# celery==5.3.4
+# redis==5.0.1
+
+# WebSocket support (Phase 2 - placeholder for now)
+# python-socketio==5.10.0
+
+# Utilities
+python-multipart==0.0.5
+pydantic==1.10.13
+typing-extensions==4.1.1

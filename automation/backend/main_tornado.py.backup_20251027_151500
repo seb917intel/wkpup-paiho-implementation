@@ -1,0 +1,1385 @@
+#!/usr/bin/env python3
+"""
+WKP Automation WebApp - Tornado Backend (Phase 2A)
+Uses only built-in and pre-installed packages (no pip install needed)
+
+Phase 2A Features:
+- WebSocket real-time updates
+- Background monitoring service
+"""
+
+import tornado.ioloop
+import tornado.web
+import tornado.escape
+import sqlite3
+import json
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+
+# Add backend to path
+sys.path.insert(0, os.path.dirname(__file__))
+
+# Import our modules (they don't need FastAPI/Pydantic)
+from netbatch_monitor import (
+    query_netbatch_status, 
+    get_summary_stats, 
+    capture_job_ids_from_log,
+    CURRENT_USER
+)
+from simulation import (
+    generate_sim_id,
+    create_work_directory,
+    copy_simulation_files,
+    update_config_file,
+    run_generation_stage,
+    run_submission_stage,
+    run_extraction_stage,
+    run_sorting_stage,
+    run_backup_stage,
+    get_available_voltage_domains,  # Import voltage domain function
+    validate_custom_corners  # Import corner validation
+)
+
+# Phase 2A: Import WebSocket handler and background monitor
+from websocket_handler import SimulationWebSocket
+from background_monitor import BackgroundMonitor
+
+# Import sync utility for startup auto-sync
+from sync_shared_files import sync_shared_files
+
+# Database path - use absolute path for consistency
+BACKEND_DIR = Path(__file__).parent.resolve()
+AUTOMATION_DIR = BACKEND_DIR.parent.resolve()
+DB_PATH = str(AUTOMATION_DIR / "webapp.db")
+
+# Debug logging to confirm database location
+print(f"📊 Database path: {DB_PATH}")
+
+def verify_simulation_completion(work_dir):
+    """
+    Verify simulation completion by checking if output files exist AND simulation succeeded.
+    Returns tuple: (completed_count, failed_count)
+    
+    Based on workflow from PHASE0_WORKFLOW_SUMMARY.md:
+    - Successful simulation produces: sim_tx.mt0, sim_tx.log with "Successfully Completed"
+    - Directory structure: {corner}/{extraction}/{extraction}_{temp}/{voltage}/
+    - Example: TT/typical/typical_85/v1nom_v2nom/sim_tx.mt0
+    
+    Verification checks:
+    1. sim_tx.mt0 exists and non-empty (measurement data)
+    2. sim_tx.log contains "Successfully Completed" (no errors)
+    """
+    if not os.path.exists(work_dir):
+        return (0, 0)
+    
+    completed = 0
+    failed = 0
+    
+    # Walk through corner directory structure
+    # Pattern: {corner}/{extraction}/{extraction}_{temp}/{voltage}/
+    for corner_dir in os.listdir(work_dir):
+        corner_path = os.path.join(work_dir, corner_dir)
+        
+        # Skip non-directories and special directories
+        if not os.path.isdir(corner_path) or corner_dir in ['template', 'configuration', 'report', 'compiled_waveform']:
+            continue
+        
+        for extraction_dir in os.listdir(corner_path):
+            extraction_path = os.path.join(corner_path, extraction_dir)
+            if not os.path.isdir(extraction_path):
+                continue
+            
+            for temp_dir in os.listdir(extraction_path):
+                temp_path = os.path.join(extraction_path, temp_dir)
+                if not os.path.isdir(temp_path):
+                    continue
+                
+                for voltage_dir in os.listdir(temp_path):
+                    voltage_path = os.path.join(temp_path, voltage_dir)
+                    if not os.path.isdir(voltage_path):
+                        continue
+                    
+                    # Check for output files
+                    mt0_file = os.path.join(voltage_path, "sim_tx.mt0")
+                    log_file = os.path.join(voltage_path, "sim_tx.log")
+                    
+                    # Check for NetBatch error files (##*#.*.altera_png_vp.*)
+                    nb_files = [f for f in os.listdir(voltage_path) if f.startswith('##') and 'altera_png_vp' in f]
+                    
+                    # Job exists if we have NetBatch file or log file
+                    if nb_files or os.path.exists(log_file):
+                        # Check NetBatch file for failures first
+                        job_failed = False
+                        if nb_files:
+                            nb_file_path = os.path.join(voltage_path, nb_files[0])
+                            try:
+                                with open(nb_file_path, 'r') as f:
+                                    nb_content = f.read()
+                                    # Check for NetBatch execution failures
+                                    if 'Exit Status    : -4' in nb_content or \
+                                       'Job execution failed' in nb_content or \
+                                       'Exit Status    : 1' in nb_content:
+                                        job_failed = True
+                            except Exception:
+                                pass
+                        
+                        if job_failed:
+                            failed += 1
+                        # Check if it completed successfully
+                        elif os.path.exists(mt0_file) and os.path.getsize(mt0_file) > 0:
+                            # Verify log shows successful completion
+                            try:
+                                # Only read last few KB for performance (success message is at end)
+                                with open(log_file, 'rb') as f:
+                                    f.seek(max(0, os.path.getsize(log_file) - 5000))
+                                    tail = f.read().decode('utf-8', errors='ignore')
+                                    
+                                if "Successfully Completed" in tail:
+                                    completed += 1
+                                else:
+                                    # MT0 exists but no success message - likely failed
+                                    failed += 1
+                            except Exception:
+                                # Error reading log, but MT0 exists - assume completed
+                                completed += 1
+                        else:
+                            # No MT0 file - definitely failed
+                            failed += 1
+    
+    return (completed, failed)
+
+
+def create_job_directory_mapping(sim_id, job_ids, work_dir):
+    """
+    Create mapping between NetBatch job IDs and simulation directories.
+    
+    CORRECTED VERSION: Now matches shell script logic exactly:
+    - Cold temps (< 0): ALL corners × their voltages
+    - Standard hot (85, 100): TT corner ONLY × their voltages
+    - Special hot (125+): ALL corners × their voltages
+    
+    Args:
+        sim_id (str): Simulation ID
+        job_ids (list): List of NetBatch job IDs in submission order
+        work_dir (str): Working directory containing config.cfg
+        
+    The mapping is stored in the job_tracking table for accurate per-job
+    status monitoring even after jobs complete and are purged from NetBatch.
+    """
+    if not os.path.exists(work_dir):
+        print(f"⚠️ Warning: work_dir does not exist: {work_dir}")
+        return
+    
+    # Parse config.cfg to determine expected directory structure
+    config_path = os.path.join(work_dir, 'config.cfg')
+    if not os.path.exists(config_path):
+        print(f"⚠️ Warning: config.cfg not found: {config_path}")
+        return
+    
+    config = {}
+    with open(config_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if ':' in line and not line.startswith('#'):
+                key, value = line.split(':', 1)
+                config[key.strip()] = value.strip()
+    
+    # Get temperature list
+    temp_list = config.get('temp_list', '').split(',')
+    temp_list = [t.strip() for t in temp_list if t.strip()]
+    
+    # Get corner list from corner CSV
+    corner_csv = os.path.join(work_dir, 'configuration', 'table_corner_list.csv')
+    corners = []
+    if os.path.exists(corner_csv):
+        with open(corner_csv, 'r') as f:
+            for line in f:
+                parts = line.strip().split(',')
+                # Skip header row (extraction,mode,corner list)
+                # Find data row starting with 'custom' or 'global'
+                if len(parts) >= 3 and parts[0] in ['custom', 'global']:
+                    # Format: "custom,typical,TT FFG SSG..."
+                    corners = parts[2].strip().split()
+                    break
+    
+    # Get extraction mode
+    extraction = config.get('extraction', 'typical')
+    
+    # CORRECTED LOGIC: Classify temperatures following shell script rules
+    # From local_pvt_loop.sh gen_pvt_loop_seq():
+    # - cold_temps: < 0 (starts with '-')
+    # - standard_hot_temps: exactly 85 or 100 (TT corner only!)
+    # - special_hot_temps: all others (125+)
+    cold_temps = []
+    standard_hot_temps = []
+    special_hot_temps = []
+    
+    for temp in temp_list:
+        if temp.startswith('-'):
+            cold_temps.append(temp)
+        elif temp in ['85', '100']:
+            standard_hot_temps.append(temp)
+        else:
+            special_hot_temps.append(temp)
+    
+    print(f"📊 Temperature classification for {sim_id}:")
+    print(f"   Cold temps (<0): {cold_temps}")
+    print(f"   Standard hot (85/100, TT only): {standard_hot_temps}")
+    print(f"   Special hot (125+): {special_hot_temps}")
+    
+    # Build expected directory paths following shell script submission order
+    expected_paths = []
+    
+    # Loop 1: Cold temps + Special hot temps → ALL corners
+    for temp in cold_temps + special_hot_temps:
+        # Get voltages for this temperature from config
+        voltage_key = f"temp_{temp}_voltages"
+        voltages_str = config.get(voltage_key, '')
+        voltages = [v.strip() for v in voltages_str.split(',') if v.strip()]
+        
+        for corner in sorted(corners):
+            # Extraction directory name
+            if extraction == 'typical':
+                ex_dir = 'typical'
+                ex_prefix = 'typical'
+            else:
+                ex_dir = corner.lower()
+                ex_prefix = corner.lower()
+            
+            # Temperature directory format: "typical_m40", "typical_85", etc.
+            if temp.startswith('-'):
+                temp_dir = f"{ex_prefix}_m{temp[1:]}"  # -40 → typical_m40
+                temp_display = temp
+            else:
+                temp_dir = f"{ex_prefix}_{temp}"  # 85 → typical_85
+                temp_display = temp
+            
+            for voltage in sorted(voltages):
+                path = os.path.join(work_dir, corner, ex_dir, temp_dir, voltage)
+                expected_paths.append({
+                    'path': path,
+                    'corner': corner,
+                    'temperature': temp_display,
+                    'voltage': voltage
+                })
+    
+    # Loop 2: Standard hot temps (85, 100) → TT corner ONLY
+    # CRITICAL: Shell script only runs TT corner for temps 85/100!
+    for temp in standard_hot_temps:
+        # Get voltages for this temperature from config
+        voltage_key = f"temp_{temp}_voltages"
+        voltages_str = config.get(voltage_key, '')
+        voltages = [v.strip() for v in voltages_str.split(',') if v.strip()]
+        
+        # ONLY TT CORNER for standard hot temps
+        if 'TT' in corners:
+            corner = 'TT'
+            ex_dir = 'typical'
+            ex_prefix = 'typical'
+            temp_dir = f"{ex_prefix}_{temp}"  # typical_85, typical_100
+            temp_display = temp
+            
+            for voltage in sorted(voltages):
+                path = os.path.join(work_dir, corner, ex_dir, temp_dir, voltage)
+                expected_paths.append({
+                    'path': path,
+                    'corner': corner,
+                    'temperature': temp_display,
+                    'voltage': voltage
+                })
+        else:
+            print(f"⚠️ TT corner not selected - skipping standard hot temp {temp}")
+    
+    # Verify counts match (should now be correct!)
+    if len(job_ids) != len(expected_paths):
+        print(f"⚠️ CRITICAL: Job count mismatch for {sim_id}")
+        print(f"   Job IDs: {len(job_ids)}, Expected paths: {len(expected_paths)}")
+        print(f"   Config: temps={temp_list}, corners={corners}")
+        print(f"   This indicates path construction still doesn't match shell script!")
+    else:
+        print(f"✅ Job count matches: {len(job_ids)} jobs = {len(expected_paths)} expected paths")
+    
+    # Create mappings in database
+    # Job IDs and expected paths should be in matching order
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    mapped_count = 0
+    for job_id, dir_info in zip(sorted(job_ids), expected_paths):
+        try:
+            c.execute('''
+                INSERT OR REPLACE INTO job_tracking 
+                (sim_id, job_id, directory_path, corner, temperature, voltage_combo, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'waiting')
+            ''', (sim_id, job_id, dir_info['path'], dir_info['corner'], 
+                  dir_info['temperature'], dir_info['voltage']))
+            mapped_count += 1
+        except Exception as e:
+            print(f"⚠️ Error inserting job tracking for job_id {job_id}: {e}")
+    
+    conn.commit()
+    conn.close()
+    
+    print(f"✅ Created {mapped_count} job-directory mappings for {sim_id}")
+
+
+# Simple database initialization
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS simulations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sim_id TEXT UNIQUE NOT NULL,
+            project TEXT NOT NULL,
+            voltage_domain TEXT NOT NULL,
+            corner_set TEXT NOT NULL,
+            library TEXT,
+            nb_cores INTEGER DEFAULT 2,
+            nb_memory INTEGER DEFAULT 2,
+            state TEXT DEFAULT 'created',
+            work_dir TEXT,
+            backup_dir TEXT,
+            netbatch_job_ids TEXT,
+            job_log_path TEXT,
+            total_jobs INTEGER DEFAULT 0,
+            jobs_completed INTEGER DEFAULT 0,
+            jobs_running INTEGER DEFAULT 0,
+            jobs_waiting INTEGER DEFAULT 0,
+            jobs_errors INTEGER DEFAULT 0,
+            progress_pct REAL DEFAULT 0.0,
+            username TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            submitted_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            finished_at TIMESTAMP
+        )
+    ''')
+    
+    # Create job_tracking table for per-job status monitoring
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS job_tracking (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sim_id TEXT NOT NULL,
+            job_id INTEGER NOT NULL,
+            directory_path TEXT NOT NULL,
+            corner TEXT,
+            temperature TEXT,
+            voltage_combo TEXT,
+            status TEXT DEFAULT 'waiting',
+            last_checked TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(sim_id, job_id),
+            FOREIGN KEY(sim_id) REFERENCES simulations(sim_id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Create indices for fast lookups
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_sim ON job_tracking(sim_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_status ON job_tracking(sim_id, status)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_jobid ON job_tracking(job_id)')
+    
+    conn.commit()
+    conn.close()
+    print(f"✓ Database initialized: {DB_PATH}")
+
+def migrate_db():
+    """Migrate existing database: make library optional and add NetBatch resource columns"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Check existing columns
+    c.execute("PRAGMA table_info(simulations)")
+    columns = c.fetchall()
+    column_names = [col[1] for col in columns]
+    
+    needs_migration = False
+    
+    # Check if library is NOT NULL
+    library_col = [col for col in columns if col[1] == 'library']
+    if library_col and library_col[0][3] == 1:
+        needs_migration = True
+    
+    # Check if nb_cores and nb_memory columns exist
+    if 'nb_cores' not in column_names or 'nb_memory' not in column_names:
+        needs_migration = True
+    
+    # Check if custom_corners and custom_extraction columns exist
+    if 'custom_corners' not in column_names or 'custom_extraction' not in column_names:
+        needs_migration = True
+    
+    if needs_migration:
+        print("📦 Migrating database: Updating schema for resources and custom corners...")
+        
+        # SQLite doesn't support ALTER COLUMN, so we need to:
+        # 1. Create new table with updated schema
+        # 2. Copy data
+        # 3. Drop old table
+        # 4. Rename new table
+        
+        c.execute('''
+            CREATE TABLE simulations_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sim_id TEXT UNIQUE NOT NULL,
+                project TEXT NOT NULL,
+                voltage_domain TEXT NOT NULL,
+                corner_set TEXT NOT NULL,
+                library TEXT,
+                nb_cores INTEGER DEFAULT 2,
+                nb_memory INTEGER DEFAULT 2,
+                custom_corners TEXT,
+                custom_extraction TEXT,
+                state TEXT DEFAULT 'created',
+                work_dir TEXT,
+                backup_dir TEXT,
+                netbatch_job_ids TEXT,
+                job_log_path TEXT,
+                total_jobs INTEGER DEFAULT 0,
+                jobs_completed INTEGER DEFAULT 0,
+                jobs_running INTEGER DEFAULT 0,
+                jobs_waiting INTEGER DEFAULT 0,
+                jobs_errors INTEGER DEFAULT 0,
+                progress_pct REAL DEFAULT 0.0,
+                username TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                submitted_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                finished_at TIMESTAMP
+            )
+        ''')
+        
+        # Build dynamic INSERT based on existing columns
+        existing_cols = ['id', 'sim_id', 'project', 'voltage_domain', 'corner_set']
+        
+        # Add optional columns if they exist
+        if 'library' in column_names:
+            existing_cols.append('library')
+        if 'nb_cores' in column_names:
+            existing_cols.append('nb_cores')
+        if 'nb_memory' in column_names:
+            existing_cols.append('nb_memory')
+        if 'custom_corners' in column_names:
+            existing_cols.append('custom_corners')
+        if 'custom_extraction' in column_names:
+            existing_cols.append('custom_extraction')
+            
+        existing_cols.extend(['state', 'work_dir', 'backup_dir', 'netbatch_job_ids', 'job_log_path',
+                             'total_jobs', 'jobs_completed', 'jobs_running', 'jobs_waiting', 'jobs_errors',
+                             'progress_pct', 'username', 'created_at', 'submitted_at', 'completed_at', 'finished_at'])
+        
+        # Filter to only columns that exist in old table
+        select_cols = [col for col in existing_cols if col in column_names]
+        
+        # Build INSERT statement
+        insert_sql = f'''
+            INSERT INTO simulations_new ({', '.join(select_cols)})
+            SELECT {', '.join(select_cols)} FROM simulations
+        '''
+        c.execute(insert_sql)
+        
+        # Drop old table and rename
+        c.execute('DROP TABLE simulations')
+        c.execute('ALTER TABLE simulations_new RENAME TO simulations')
+        
+        conn.commit()
+        print("✓ Database migration complete: Added nb_cores, nb_memory, custom_corners, and custom_extraction columns")
+    
+    # Ensure job_tracking table exists (add to existing databases)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS job_tracking (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sim_id TEXT NOT NULL,
+            job_id INTEGER NOT NULL,
+            directory_path TEXT NOT NULL,
+            corner TEXT,
+            temperature TEXT,
+            voltage_combo TEXT,
+            status TEXT DEFAULT 'waiting',
+            last_checked TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(sim_id, job_id),
+            FOREIGN KEY(sim_id) REFERENCES simulations(sim_id) ON DELETE CASCADE
+        )
+    ''')
+    
+    # Create indices for fast lookups
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_sim ON job_tracking(sim_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_status ON job_tracking(sim_id, status)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_job_tracking_jobid ON job_tracking(job_id)')
+    conn.commit()
+    
+    conn.close()
+
+# Initialize DB on startup
+if not os.path.exists(DB_PATH):
+    init_db()
+else:
+    migrate_db()
+
+class IndexHandler(tornado.web.RequestHandler):
+    """Root endpoint - service info"""
+    def get(self):
+        info = {
+            "service": "WKP Automation WebApp",
+            "version": "1.0.0-tornado",
+            "phase": "Phase 1b (Tornado-based)",
+            "user": CURRENT_USER,
+            "endpoints": {
+                "health": "GET /api/health",
+                "simulations": "GET /api/simulations",
+                "submit": "POST /api/submit",
+                "status": "GET /api/status/{sim_id}",
+                "extract": "POST /api/extract/{sim_id}"
+            }
+        }
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps(info, indent=2))
+
+class HealthHandler(tornado.web.RequestHandler):
+    """Health check"""
+    def get(self):
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps({"status": "healthy", "user": CURRENT_USER}))
+
+class SimulationsHandler(tornado.web.RequestHandler):
+    """List all simulations for current user"""
+    def get(self):
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('''
+            SELECT * FROM simulations 
+            WHERE username = ? 
+            ORDER BY created_at DESC
+        ''', (CURRENT_USER,))
+        rows = c.fetchall()
+        conn.close()
+        
+        simulations = []
+        for row in rows:
+            sim = dict(row)
+            # Add 'Z' suffix to timestamps to indicate UTC (if timestamp exists and doesn't have Z)
+            for ts_field in ['created_at', 'submitted_at', 'completed_at', 'finished_at']:
+                if sim.get(ts_field) and not sim[ts_field].endswith('Z'):
+                    sim[ts_field] = sim[ts_field] + 'Z'
+            simulations.append(sim)
+        
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps({"simulations": simulations, "count": len(simulations)}, indent=2))
+
+class SubmitHandler(tornado.web.RequestHandler):
+    """Submit new simulation"""
+    def post(self):
+        try:
+            # Parse JSON body
+            data = tornado.escape.json_decode(self.request.body)
+            project = data.get('project')
+            voltage_domain = data.get('voltage_domain')
+            custom_template_path = data.get('custom_template_path', None)
+            nb_cores = data.get('nb_cores', 2)  # Default 2 cores
+            nb_memory = data.get('nb_memory', 2)  # Default 2GB memory
+            
+            # NEW FORMAT: Get corners, temperatures, and per-temp voltage specs
+            corners = data.get('corners', None)
+            temperatures = data.get('temperatures', None)
+            
+            # NEW: Extract per-temperature voltage specifications
+            # Keys like: temp_-40_voltages, temp_85_voltages, etc.
+            temp_voltages = {}
+            for key, value in data.items():
+                if key.startswith('temp_') and key.endswith('_voltages'):
+                    temp_voltages[key] = value
+            
+            # Validation
+            if not all([project, voltage_domain]):
+                self.set_status(400)
+                self.write(json.dumps({"error": "Missing required fields"}))
+                return
+            
+            if not corners or len(corners) == 0:
+                self.set_status(400)
+                self.write(json.dumps({"error": "At least one corner must be selected"}))
+                return
+            
+            if not temperatures or len(temperatures) == 0:
+                self.set_status(400)
+                self.write(json.dumps({"error": "At least one temperature must be selected"}))
+                return
+            
+            # Validate that each temperature has voltage specifications
+            for temp in temperatures:
+                volt_key = f"temp_{temp}_voltages"
+                if volt_key not in temp_voltages:
+                    self.set_status(400)
+                    self.write(json.dumps({"error": f"Missing voltage specification for temperature {temp}°C"}))
+                    return
+                voltages = temp_voltages[volt_key].split(',')
+                if len(voltages) == 0 or (len(voltages) == 1 and voltages[0] == ''):
+                    self.set_status(400)
+                    self.write(json.dumps({"error": f"No voltages selected for temperature {temp}°C"}))
+                    return
+            
+            # Validate corners
+            validation = validate_custom_corners(corners)
+            if not validation['valid']:
+                self.set_status(400)
+                self.write(json.dumps({"error": validation['error']}))
+                return
+            
+            # Log warning if TT not selected
+            if 'warning' in validation:
+                print(f"⚠️  {validation['warning']}")
+            
+            # Validate custom template path if provided
+            if custom_template_path:
+                import os
+                if not os.path.exists(custom_template_path):
+                    self.set_status(400)
+                    self.write(json.dumps({"error": f"Custom template path does not exist: {custom_template_path}"}))
+                    return
+                if not os.path.isdir(custom_template_path):
+                    self.set_status(400)
+                    self.write(json.dumps({"error": "Custom template path must be a directory"}))
+                    return
+            
+            # Generate sim_id
+            sim_id = generate_sim_id()
+            
+            # Create work directory
+            work_dir = create_work_directory(project, voltage_domain, sim_id)
+            
+            # Copy files and update config
+            copy_simulation_files(work_dir, project, voltage_domain, custom_template_path)
+            update_config_file(work_dir, corners, temperatures, temp_voltages, nb_cores, nb_memory, project, voltage_domain)
+            
+            # Insert into database
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            
+            # Store temp_voltages as JSON string
+            temp_voltages_json = json.dumps(temp_voltages)
+            
+            c.execute('''
+                INSERT INTO simulations 
+                (sim_id, project, voltage_domain, corner_set, nb_cores, nb_memory, work_dir, username, state, 
+                 custom_corners, custom_extraction, temperature_list, voltage_sweep)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'created', ?, ?, ?, ?)
+            ''', (sim_id, project, voltage_domain, 'custom', nb_cores, nb_memory, work_dir, CURRENT_USER, 
+                  json.dumps(corners), 'typical', ','.join(temperatures), temp_voltages_json))
+            db_id = c.lastrowid
+            conn.commit()
+            conn.close()
+            
+            # Run generation stage
+            print(f"[{sim_id}] Running generation stage...")
+            gen_result = run_generation_stage(work_dir)
+            if gen_result:
+                print(f"[{sim_id}] Generation complete")
+            else:
+                raise Exception(f"Generation failed")
+            
+            # Run submission stage
+            print(f"[{sim_id}] Running submission stage...")
+            job_log_path = run_submission_stage(work_dir)
+            if job_log_path:
+                print(f"[{sim_id}] Submission complete")
+                
+                # Capture job IDs (job_log_path is returned from run_submission_stage)
+                job_ids = capture_job_ids_from_log(job_log_path)
+                
+                # Create job-directory mapping for accurate status tracking
+                print(f"[{sim_id}] Creating job-directory mapping...")
+                create_job_directory_mapping(sim_id, job_ids, work_dir)
+                
+                # Update database
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute('''
+                    UPDATE simulations 
+                    SET state = 'submitted',
+                        netbatch_job_ids = ?,
+                        job_log_path = ?,
+                        total_jobs = ?,
+                        submitted_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (json.dumps(job_ids), job_log_path, len(job_ids), db_id))
+                conn.commit()
+                conn.close()
+                
+                print(f"[{sim_id}] {len(job_ids)} jobs submitted to NetBatch")
+            else:
+                raise Exception(f"Submission failed")
+            
+            # Build response message
+            temp_str = ', '.join([f"{t}°C" for t in temperatures])
+            volt_summary = f"{len(temp_voltages)} temps configured"
+            response_msg = f"Simulation {sim_id} submitted successfully. Corners: {', '.join(corners)} | Temps: {temp_str} | Voltages: {volt_summary}"
+            
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps({
+                "sim_id": sim_id,
+                "status": "submitted",
+                "work_dir": work_dir,
+                "jobs_submitted": len(job_ids),
+                "message": response_msg
+            }, indent=2))
+            
+        except Exception as e:
+            print(f"Error in submit: {e}")
+            self.set_status(500)
+            self.write(json.dumps({"error": str(e)}))
+
+
+def check_single_job_status(job_id, directory_path, current_status='waiting'):
+    """
+    Check status of a single job with priority: file system first, then NetBatch.
+    
+    IMPORTANT: Once a job reaches 'completed' or 'error' state, it stays there permanently.
+    This prevents status regression when NetBatch purges completed jobs.
+    
+    Args:
+        job_id (int): NetBatch job ID
+        directory_path (str): Full path to job's output directory
+        current_status (str): Current status from database (default: 'waiting')
+        
+    Returns:
+        str: Status - 'completed', 'error', 'running', or 'waiting'
+    """
+    # NEVER downgrade final statuses - once complete/error, always complete/error
+    if current_status in ['completed', 'error']:
+        return current_status
+    # PRIORITY 1: Check file system for completion/error markers
+    if os.path.exists(directory_path):
+        # Check for completion marker (MT0 file)
+        mt0_file = os.path.join(directory_path, "sim_tx.mt0")
+        log_file = os.path.join(directory_path, "sim_tx.log")
+        
+        if os.path.exists(mt0_file) and os.path.getsize(mt0_file) > 0:
+            # MT0 exists - verify successful completion
+            if os.path.exists(log_file):
+                try:
+                    # Read last 5KB of log for performance
+                    with open(log_file, 'rb') as f:
+                        f.seek(max(0, os.path.getsize(log_file) - 5000))
+                        tail = f.read().decode('utf-8', errors='ignore')
+                    
+                    if "Successfully Completed" in tail:
+                        return 'completed'
+                    else:
+                        return 'error'  # MT0 exists but no success message
+                except Exception:
+                    return 'completed'  # Assume completed if can't read log
+            else:
+                return 'completed'  # MT0 exists, assume completed
+        
+        # Check for NetBatch error file
+        try:
+            nb_files = [f for f in os.listdir(directory_path) if f.startswith('##') and 'altera_png_vp' in f]
+            if nb_files:
+                nb_file_path = os.path.join(directory_path, nb_files[0])
+                with open(nb_file_path, 'r') as f:
+                    nb_content = f.read()
+                    if 'Exit Status    : -4' in nb_content or 'Exit Status    : 1' in nb_content:
+                        return 'error'
+        except Exception:
+            pass
+    
+    # PRIORITY 2: Query NetBatch for actual job status
+    # Don't guess based on directory contents - directories are created during generation
+    # stage before jobs even start, so they already have files (sim_tx.sp, etc.)
+    nb_status = query_single_job_netbatch(job_id)
+    
+    if nb_status == "Run":
+        return 'running'
+    elif nb_status == "Wait" or (nb_status and "Remote" in nb_status):
+        return 'waiting'
+    elif nb_status == "Comp":
+        return 'completed'
+    elif nb_status is None:
+        # Not in NetBatch - job purged or never existed
+        # Must re-check filesystem for completion markers!
+        if os.path.exists(directory_path):
+            # Check for .mt0 file (completed)
+            mt0_file = os.path.join(directory_path, "sim_tx.mt0")
+            if os.path.exists(mt0_file) and os.path.getsize(mt0_file) > 0:
+                return 'completed'
+            
+            # Check for error markers
+            try:
+                nb_files = [f for f in os.listdir(directory_path) if f.startswith('##') and 'altera_png_vp' in f]
+                if nb_files:
+                    nb_file_path = os.path.join(directory_path, nb_files[0])
+                    with open(nb_file_path, 'r') as f:
+                        nb_content = f.read()
+                        if 'Exit Status    : -4' in nb_content or 'Exit Status    : 1' in nb_content:
+                            return 'error'
+            except Exception:
+                pass
+        
+        # Job purged from NetBatch but no completion markers found
+        # If directory doesn't exist, this is a phantom job (wrong path)
+        # Mark as error to allow simulation to finish
+        if not os.path.exists(directory_path):
+            return 'error'  # Phantom job - wrong path, never submitted
+        
+        # Directory exists but no markers - conservative fallback
+        return 'waiting'
+    
+    return 'unknown'
+
+
+def query_single_job_netbatch(job_id):
+    """
+    Query NetBatch for single job status.
+    
+    Args:
+        job_id (int): NetBatch job ID
+        
+    Returns:
+        str: Status string (Wait, Run, Comp, etc.) or None if not found
+    """
+    statuses = query_netbatch_status([job_id])
+    return statuses.get(job_id, None)
+
+
+def get_simulation_status_from_tracking(sim_id):
+    """
+    Get simulation status using job_tracking table.
+    
+    This is the new approach that tracks each job individually by its directory,
+    ensuring counts always add up correctly even when NetBatch purges jobs.
+    
+    Args:
+        sim_id (str): Simulation ID
+        
+    Returns:
+        dict: Status counts and details
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # Get all jobs for this simulation
+    c.execute('''
+        SELECT job_id, directory_path, status 
+        FROM job_tracking 
+        WHERE sim_id = ?
+    ''', (sim_id,))
+    
+    jobs = c.fetchall()
+    conn.close()
+    
+    if not jobs:
+        # No tracking data - fallback to old method
+        return None
+    
+    # Check each job and update status
+    status_counts = {
+        'completed': 0,
+        'running': 0,
+        'waiting': 0,
+        'error': 0
+    }
+    
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    for job in jobs:
+        job_id = job['job_id']
+        directory_path = job['directory_path']
+        old_status = job['status']
+        
+        # Check current status (pass old_status to prevent downgrading completed/error)
+        new_status = check_single_job_status(job_id, directory_path, old_status)
+        
+        # Update if changed
+        if new_status != old_status:
+            c.execute('''
+                UPDATE job_tracking 
+                SET status = ?, last_checked = CURRENT_TIMESTAMP
+                WHERE job_id = ?
+            ''', (new_status, job_id))
+        
+        status_counts[new_status] += 1
+    
+    conn.commit()
+    conn.close()
+    
+    # Calculate progress and return stats
+    total = sum(status_counts.values())
+    finished_count = status_counts['completed'] + status_counts['error']
+    progress_pct = round(finished_count / total * 100, 1) if total > 0 else 0.0
+    
+    # Two completion flags:
+    # - all_complete: Perfect completion (no errors, all completed)
+    # - all_jobs_finished: All jobs done (may include errors, but nothing running/waiting)
+    all_complete = (status_counts['completed'] == total) and (status_counts['error'] == 0)
+    all_jobs_finished = (status_counts['running'] == 0) and (status_counts['waiting'] == 0)
+    
+    return {
+        'total': total,
+        'completed': status_counts['completed'],
+        'running': status_counts['running'],
+        'waiting': status_counts['waiting'],
+        'errors': status_counts['error'],
+        'progress_pct': progress_pct,
+        'all_complete': all_complete,
+        'all_jobs_finished': all_jobs_finished  # NEW: Indicates monitoring can stop
+    }
+
+
+class StatusHandler(tornado.web.RequestHandler):
+    """Get simulation status"""
+    def get(self, sim_id):
+        # Get simulation from database
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM simulations WHERE sim_id = ? AND username = ?', (sim_id, CURRENT_USER))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            self.set_status(404)
+            self.write(json.dumps({"error": "Simulation not found"}))
+            return
+        
+        sim = dict(row)
+        
+        # If submitted/running, use improved job tracking system
+        if sim['state'] in ['submitted', 'running'] and sim['total_jobs'] > 0:
+            # Try new job_tracking method first
+            stats = get_simulation_status_from_tracking(sim['sim_id'])
+            
+            if stats is None:
+                # Fallback to old method if no tracking data exists
+                print(f"[STATUS] No job tracking data for {sim['sim_id']}, using fallback method")
+                job_ids = json.loads(sim['netbatch_job_ids']) if sim['netbatch_job_ids'] else []
+                statuses = query_netbatch_status(job_ids)
+                stats = get_summary_stats(statuses, sim['total_jobs'])
+            else:
+                # Successfully got stats from job_tracking - use them!
+                print(f"[STATUS] {sim['sim_id']}: completed={stats['completed']}, running={stats['running']}, waiting={stats['waiting']}, errors={stats['errors']}, total={stats.get('total', sim['total_jobs'])}")
+            
+            # Update database with current status
+            new_state = 'completed' if stats['all_complete'] else ('failed' if stats.get('errors', 0) > 0 else 'running')
+            
+            # When completed or failed, no jobs should be running or waiting
+            jobs_running = 0 if new_state in ['completed', 'failed'] else stats['running']
+            jobs_waiting = 0 if new_state in ['completed', 'failed'] else stats['waiting']
+            
+            c.execute('''
+                UPDATE simulations
+                SET state = ?,
+                    jobs_completed = ?,
+                    jobs_running = ?,
+                    jobs_waiting = ?,
+                    jobs_errors = ?,
+                    progress_pct = ?,
+                    completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END
+                WHERE id = ?
+            ''', (new_state, stats['completed'], jobs_running, jobs_waiting, 
+                  stats['errors'], stats['progress_pct'], new_state, sim['id']))
+            conn.commit()
+            
+            # Refresh sim data
+            c.execute('SELECT * FROM simulations WHERE id = ?', (sim['id'],))
+            sim = dict(c.fetchone())
+        
+        conn.close()
+        
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps(sim, indent=2))
+
+class ExtractHandler(tornado.web.RequestHandler):
+    """Manually trigger extraction"""
+    def post(self, sim_id):
+        # Get simulation
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM simulations WHERE sim_id = ? AND username = ?', (sim_id, CURRENT_USER))
+        row = c.fetchone()
+        
+        if not row:
+            conn.close()
+            self.set_status(404)
+            self.write(json.dumps({"error": "Simulation not found"}))
+            return
+        
+        sim = dict(row)
+        work_dir = sim['work_dir']
+        
+        try:
+            # Run extraction stages
+            c.execute('UPDATE simulations SET state = ? WHERE id = ?', ('extracting', sim['id']))
+            conn.commit()
+            
+            print(f"[{sim_id}] Running extraction...")
+            ext_result = run_extraction_stage(work_dir)
+            if not ext_result:
+                raise Exception(f"Extraction failed")
+            
+            c.execute('UPDATE simulations SET state = ? WHERE id = ?', ('sorting', sim['id']))
+            conn.commit()
+            
+            print(f"[{sim_id}] Running sorting...")
+            srt_result = run_sorting_stage(work_dir)
+            if not srt_result:
+                raise Exception(f"Sorting failed")
+            
+            c.execute('UPDATE simulations SET state = ? WHERE id = ?', ('backing_up', sim['id']))
+            conn.commit()
+            
+            print(f"[{sim_id}] Running backup...")
+            backup_dir = run_backup_stage(work_dir)
+            if not backup_dir:
+                raise Exception(f"Backup failed")
+            
+            # Mark as finished
+            c.execute('''
+                UPDATE simulations 
+                SET state = 'finished', 
+                    backup_dir = ?,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (backup_dir or '', sim['id']))
+            conn.commit()
+            conn.close()
+            
+            self.write(json.dumps({"status": "finished", "message": f"Extraction complete for {sim_id}"}))
+            
+        except Exception as e:
+            print(f"Error in extraction: {e}")
+            c.execute('UPDATE simulations SET state = ? WHERE id = ?', ('failed', sim['id']))
+            conn.commit()
+            conn.close()
+            self.set_status(500)
+            self.write(json.dumps({"error": str(e)}))
+
+class ResultsHandler(tornado.web.RequestHandler):
+    """Get parsed results for a finished simulation"""
+    def get(self, sim_id):
+        # Get simulation from database
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM simulations WHERE sim_id = ? AND username = ?', (sim_id, CURRENT_USER))
+        row = c.fetchone()
+        conn.close()
+        
+        if not row:
+            self.set_status(404)
+            self.write(json.dumps({"error": "Simulation not found"}))
+            return
+        
+        sim = dict(row)
+        
+        # Check if simulation is finished
+        if sim['state'] != 'finished':
+            self.set_status(400)
+            self.write(json.dumps({
+                "error": "Simulation not finished",
+                "current_state": sim['state'],
+                "message": "Results are only available for finished simulations"
+            }))
+            return
+        
+        # Check if backup directory exists
+        backup_dir = sim.get('backup_dir')
+        if not backup_dir or not os.path.exists(backup_dir):
+            self.set_status(404)
+            self.write(json.dumps({
+                "error": "Backup directory not found",
+                "backup_dir": backup_dir
+            }))
+            return
+        
+        # Parse creport.txt
+        from results_parser import parse_creport, analyze_results
+        
+        creport_path = os.path.join(backup_dir, "report", "creport.txt")
+        
+        if not os.path.exists(creport_path):
+            self.set_status(404)
+            self.write(json.dumps({
+                "error": "creport.txt not found",
+                "expected_path": creport_path
+            }))
+            return
+        
+        # Parse the results
+        parsed_results = parse_creport(creport_path)
+        
+        if not parsed_results:
+            self.set_status(500)
+            self.write(json.dumps({
+                "error": "Failed to parse creport.txt",
+                "file": creport_path
+            }))
+            return
+        
+        # Load custom spec limits (if any)
+        from results_parser import load_custom_spec_limits
+        custom_limits = load_custom_spec_limits()
+        
+        # Analyze results (pass/fail classification) with custom or default limits
+        analysis = analyze_results(parsed_results, spec_limits=custom_limits)
+        
+        # Convert rows from dictionary format to array format for frontend
+        # Frontend expects: {values: [...], status: "pass/fail"}
+        # Backend has: {header1: value1, header2: value2, _status: "pass"}
+        headers = parsed_results.get('headers', [])
+        rows_for_frontend = []
+        
+        if analysis:
+            for row_dict in analysis.get('rows_with_status', []):
+                # Extract values in header order
+                values = [row_dict.get(h, '') for h in headers]
+                rows_for_frontend.append({
+                    'values': values,
+                    'status': row_dict.get('_status', ''),
+                    'failures': row_dict.get('_failures', [])
+                })
+        else:
+            # No analysis, just convert rows
+            for row_dict in parsed_results.get('rows', []):
+                values = [row_dict.get(h, '') for h in headers]
+                rows_for_frontend.append({
+                    'values': values
+                })
+        
+        # Combine parsed data with analysis
+        response = {
+            "sim_id": sim_id,
+            "metadata": parsed_results.get('metadata', {}),
+            "headers": headers,
+            "rows": rows_for_frontend,
+            "total_corners": parsed_results.get('total_corners', 0),
+            "summary": {
+                "pass_count": analysis.get('pass_count', 0) if analysis else 0,
+                "fail_count": analysis.get('fail_count', 0) if analysis else 0,
+                "total": parsed_results.get('total_corners', 0)
+            },
+            "backup_dir": backup_dir,
+            "creport_path": creport_path
+        }
+        
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps(response, indent=2))
+
+
+class SpecLimitsHandler(tornado.web.RequestHandler):
+    """Get or set custom specification limits"""
+    
+    def get(self):
+        """Get current spec limits (custom or default)"""
+        from results_parser import load_custom_spec_limits, get_default_spec_limits
+        
+        custom_limits = load_custom_spec_limits()
+        default_limits = get_default_spec_limits()
+        
+        response = {
+            "custom_limits": custom_limits,
+            "default_limits": default_limits,
+            "active_limits": custom_limits if custom_limits else default_limits,
+            "using_custom": bool(custom_limits)
+        }
+        
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps(response, indent=2))
+    
+    def post(self):
+        """Save custom spec limits"""
+        from results_parser import save_custom_spec_limits
+        
+        try:
+            data = json.loads(self.request.body)
+            # Accept both formats: direct data or nested under 'spec_limits'
+            spec_limits = data.get('spec_limits', data) if 'spec_limits' in data else data
+            
+            if not spec_limits:
+                self.set_status(400)
+                self.write({"error": "No spec_limits provided"})
+                return
+            
+            # Validate format
+            for param, limits in spec_limits.items():
+                if not isinstance(limits, dict):
+                    self.set_status(400)
+                    self.write({"error": "Each parameter must have a dict with min/max"})
+                    return
+                if 'min' not in limits and 'max' not in limits:
+                    self.set_status(400)
+                    self.write({"error": "Each parameter must have at least min or max"})
+                    return
+            
+            # Save to file
+            if save_custom_spec_limits(spec_limits):
+                self.write({
+                    "status": "success",
+                    "message": "Custom spec limits saved",
+                    "spec_limits": spec_limits
+                })
+            else:
+                self.set_status(500)
+                self.write({"error": "Failed to save spec limits"})
+        
+        except json.JSONDecodeError:
+            self.set_status(400)
+            self.write({"error": "Invalid JSON"})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+    
+    def delete(self):
+        """Delete custom spec limits (revert to defaults)"""
+        import os
+        config_file = 'spec_limits.json'
+        
+        try:
+            if os.path.exists(config_file):
+                os.remove(config_file)
+                self.write({
+                    "status": "success",
+                    "message": "Custom spec limits deleted, reverted to defaults"
+                })
+            else:
+                self.write({
+                    "status": "success",
+                    "message": "No custom spec limits to delete"
+                })
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class VoltageDomainsHandler(tornado.web.RequestHandler):
+    """Get available voltage domains for a project"""
+    
+    def get(self, project):
+        """
+        GET /api/voltage-domains/<project>
+        Returns list of available voltage domains for the project.
+        """
+        try:
+            domains = get_available_voltage_domains(project)
+            self.write({"voltage_domains": domains})
+        except Exception as e:
+            self.set_status(500)
+            self.write({"error": str(e)})
+
+
+class ValidateVoltageHandler(tornado.web.RequestHandler):
+    """Validate voltage input"""
+    
+    def post(self):
+        """
+        POST /api/validate-voltage
+        Validates user voltage input and returns domain ID if valid.
+        
+        Request body: {"voltage": "1.5"}
+        Response: {
+            "valid": true,
+            "voltage": 1.5,
+            "domain_id": "1p5v",
+            "error": null
+        }
+        """
+        try:
+            from voltage_domain_manager import validate_voltage_input
+            
+            data = tornado.escape.json_decode(self.request.body)
+            voltage_input = data.get('voltage', '')
+            
+            result = validate_voltage_input(voltage_input)
+            self.write(result)
+            
+        except Exception as e:
+            self.set_status(500)
+            self.write({
+                "valid": False,
+                "error": f"Server error: {str(e)}"
+            })
+
+
+def make_app():
+    # Get absolute path to frontend directory
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    automation_dir = os.path.dirname(backend_dir)
+    frontend_path = os.path.join(automation_dir, "frontend")
+    
+    return tornado.web.Application([
+        (r"/", IndexHandler),
+        (r"/api/health", HealthHandler),
+        (r"/api/simulations", SimulationsHandler),
+        (r"/api/submit", SubmitHandler),
+        (r"/api/status/([^/]+)", StatusHandler),
+        (r"/api/extract/([^/]+)", ExtractHandler),
+        (r"/api/results/([^/]+)", ResultsHandler),  # Phase 2B: Results API
+        (r"/api/spec-limits", SpecLimitsHandler),   # Phase 2B: Spec limits configuration
+        (r"/api/voltage-domains/([^/]+)", VoltageDomainsHandler),  # Voltage domain API
+        (r"/api/validate-voltage", ValidateVoltageHandler),  # Voltage validation API
+        (r"/ws/simulation", SimulationWebSocket),  # Phase 2A: WebSocket endpoint
+        (r"/frontend/(.*)", tornado.web.StaticFileHandler, {
+            "path": frontend_path,
+            "default_filename": "index.html"
+        }),
+    ])
+
+if __name__ == "__main__":
+    # Auto-sync shared files on startup
+    print("🔄 Auto-syncing shared files across voltage domains...")
+    sync_result = sync_shared_files(project='i3c', dry_run=False, verbose=False)
+    if sync_result.get('success'):
+        synced = sync_result.get('synced_count', 0)
+        if synced > 0:
+            print(f"  ✅ Synced {synced} files across voltage domains")
+        else:
+            print(f"  ✅ All files already in sync")
+    else:
+        print(f"  ⚠️ Sync completed with warnings")
+    print("")
+    
+    # Initialize database
+    init_db()
+    
+    # Create and configure app
+    app = make_app()
+    port = 5000
+    app.listen(port, address="127.0.0.1")
+    
+    # Phase 2A: Start background monitoring service
+    # Phase 2B: Auto-extraction enabled
+    monitor = BackgroundMonitor(DB_PATH, check_interval=3000, auto_extract=True)
+    monitor.start()
+    
+    print("")
+    print("╔════════════════════════════════════════════════════════════╗")
+    print("║         WKP Automation WebApp - Phase 2B                   ║")
+    print("║   (Auto-Extraction + Progress Tracking + Threading)        ║")
+    print("╚════════════════════════════════════════════════════════════╝")
+    print("")
+    print("  🌐 Server:    http://localhost:{0}".format(port))
+    print("  📊 Frontend:  http://localhost:{0}/frontend/".format(port))
+    print("  📡 WebSocket: ws://localhost:{0}/ws/simulation".format(port))
+    print("  👤 User:      {0}".format(CURRENT_USER))
+    print("")
+    print("  📁 Database:  {0}".format(DB_PATH))
+    print("  📁 Work dir:  /nfs/site/disks/km6_io_37/users/chinseba/simulation/wkpup")
+    print("")
+    print("  ✅ Background monitor active (3-second polling)")
+    print("  ✅ Real-time WebSocket updates enabled")
+    print("  ✅ Auto-extraction enabled (threaded)")
+    print("")
+    print("  Press Ctrl+C to stop")
+    print("")
+    
+    try:
+        tornado.ioloop.IOLoop.current().start()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        monitor.stop()
+        print("Server stopped.")

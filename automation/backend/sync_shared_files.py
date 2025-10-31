@@ -1,0 +1,307 @@
+#!/usr/bin/env python3
+"""
+Sync Shared Files Across Voltage Domains
+
+This script synchronizes shared script files from the reference domain (1p1v)
+to all other voltage domains, ensuring consistency across the entire project.
+
+Shared files (identical logic across domains):
+- sim_pvt_local.sh
+- local_extract.sh
+- local_move.sh
+- runme_local.sh
+- configuration/read_corner.sh
+- configuration/table_corner_list.csv (will be synced to fix current bug)
+
+Domain-specific files (NOT synced):
+- config.cfg (different vccn: value per domain)
+- template/*.sp (different voltage parameters)
+
+Usage:
+    python3 backend/sync_shared_files.py              # Sync i3c project
+    python3 backend/sync_shared_files.py --project gpio  # Sync gpio project
+    python3 backend/sync_shared_files.py --dry-run    # Test without copying
+"""
+
+import os
+import sys
+import shutil
+import hashlib
+import argparse
+from pathlib import Path
+from typing import List, Dict, Tuple
+
+
+# Configuration
+BASE_PATH = "/nfs/site/disks/km6_io_37/users/chinseba/simulation/wkpup"
+REFERENCE_DOMAIN = "1p1v"
+
+# Shared files (identical logic across all voltage domains)
+SHARED_FILES = [
+    'sim_pvt_local.sh',
+    'local_extract.sh',
+    'local_move.sh',
+    'runme_local.sh',
+    'configuration/read_corner.sh',
+    'configuration/table_corner_list.csv',  # Include CSV to fix existing bug
+    'configuration/read_supply.sh',          # Voltage configuration (CRITICAL)
+    'configuration/table_supply_list.csv',   # Voltage specifications (CRITICAL)
+    'configuration/table_supply_list_ac.csv', # AC voltage specs
+    'configuration/table_supply_list_dc.csv'  # DC voltage specs
+]
+
+# Domain-specific files (must NOT be synced)
+EXCLUDED_FILES = [
+    'config.cfg',           # Contains vccn:X value (different per domain)
+    'template/',            # Contains .param vcn=X (different per domain)
+    'runs/',                # Simulation work directories
+    '.registry/'            # Internal tracking
+]
+
+
+def file_hash(filepath: str) -> str:
+    """
+    Calculate MD5 hash of file content.
+    
+    Args:
+        filepath: Absolute path to file
+        
+    Returns:
+        MD5 hash as hex string, or None if file doesn't exist
+    """
+    if not os.path.exists(filepath):
+        return None
+    
+    try:
+        with open(filepath, 'rb') as f:
+            return hashlib.md5(f.read()).hexdigest()
+    except Exception as e:
+        print(f"  ⚠️  Warning: Could not hash {filepath}: {e}")
+        return None
+
+
+def find_voltage_domains(project: str) -> List[str]:
+    """
+    Auto-detect voltage domains in project directory.
+    
+    Args:
+        project: Project name (e.g., 'i3c', 'gpio')
+        
+    Returns:
+        List of voltage domain IDs (e.g., ['1p2v', '1p8v', '1p15v'])
+        Excludes reference domain (1p1v)
+    """
+    project_path = os.path.join(BASE_PATH, project)
+    
+    if not os.path.exists(project_path):
+        print(f"  ❌ Project directory not found: {project_path}")
+        return []
+    
+    domains = []
+    for item in os.listdir(project_path):
+        item_path = os.path.join(project_path, item)
+        
+        # Check if directory and ends with 'v' (voltage domain pattern)
+        if os.path.isdir(item_path) and item.endswith('v'):
+            # Exclude reference domain
+            if item != REFERENCE_DOMAIN:
+                domains.append(item)
+    
+    return sorted(domains)
+
+
+def sync_shared_files(project: str = 'i3c', dry_run: bool = False, verbose: bool = True) -> Dict:
+    """
+    Sync shared files from reference domain to all other voltage domains.
+    
+    Args:
+        project: Project name (default: 'i3c')
+        dry_run: If True, only report what would be synced without copying
+        verbose: If True, print detailed output
+        
+    Returns:
+        Dict with sync statistics:
+        {
+            'success': bool,
+            'synced_count': int,
+            'domains_count': int,
+            'files_checked': int,
+            'errors': List[str]
+        }
+    """
+    project_path = os.path.join(BASE_PATH, project)
+    reference_path = os.path.join(project_path, REFERENCE_DOMAIN)
+    
+    # Validate reference domain exists
+    if not os.path.exists(reference_path):
+        error = f"Reference domain not found: {reference_path}"
+        if verbose:
+            print(f"  ❌ {error}")
+        return {
+            'success': False,
+            'error': error,
+            'synced_count': 0,
+            'domains_count': 0,
+            'files_checked': 0
+        }
+    
+    # Find all voltage domains
+    domains = find_voltage_domains(project)
+    
+    if not domains:
+        if verbose:
+            print(f"  ℹ️  No additional voltage domains found (only {REFERENCE_DOMAIN} exists)")
+        return {
+            'success': True,
+            'synced_count': 0,
+            'domains_count': 0,
+            'files_checked': 0
+        }
+    
+    if verbose:
+        print(f"  📁 Project: {project}")
+        print(f"  📌 Reference: {REFERENCE_DOMAIN}")
+        print(f"  🎯 Target domains: {', '.join(domains)}")
+        if dry_run:
+            print(f"  🔍 DRY RUN MODE - No files will be modified")
+        print()
+    
+    synced_count = 0
+    files_checked = 0
+    errors = []
+    
+    # Sync each file to each domain
+    for domain in domains:
+        domain_synced = 0
+        
+        for shared_file in SHARED_FILES:
+            files_checked += 1
+            
+            src_path = os.path.join(reference_path, shared_file)
+            dst_path = os.path.join(project_path, domain, shared_file)
+            
+            # Check if source file exists
+            if not os.path.exists(src_path):
+                if verbose:
+                    print(f"  ⚠️  Skipping {shared_file} - not found in {REFERENCE_DOMAIN}")
+                continue
+            
+            # Calculate hashes
+            src_hash = file_hash(src_path)
+            dst_hash = file_hash(dst_path)
+            
+            # Only copy if files differ
+            if src_hash != dst_hash:
+                if dry_run:
+                    if verbose:
+                        status = "MISSING" if dst_hash is None else "DIFFERS"
+                        print(f"  🔄 Would sync: {domain}/{shared_file} ({status})")
+                    synced_count += 1
+                    domain_synced += 1
+                else:
+                    try:
+                        # Create directory if needed
+                        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                        
+                        # Copy file
+                        shutil.copy2(src_path, dst_path)
+                        
+                        if verbose:
+                            print(f"  ✅ Synced: {domain}/{shared_file}")
+                        
+                        synced_count += 1
+                        domain_synced += 1
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to sync {domain}/{shared_file}: {e}"
+                        errors.append(error_msg)
+                        if verbose:
+                            print(f"  ❌ {error_msg}")
+        
+        # Summary per domain
+        if verbose and domain_synced == 0:
+            print(f"  ✓ {domain} - already in sync")
+    
+    # Final summary
+    if verbose:
+        print()
+        if synced_count == 0:
+            print(f"  ✅ All files already in sync across {len(domains)} domains")
+        else:
+            action = "would be synced" if dry_run else "synced"
+            print(f"  ✅ {synced_count} files {action} across {len(domains)} domains")
+        
+        if errors:
+            print(f"  ⚠️  {len(errors)} errors occurred")
+    
+    return {
+        'success': len(errors) == 0,
+        'synced_count': synced_count,
+        'domains_count': len(domains),
+        'files_checked': files_checked,
+        'errors': errors
+    }
+
+
+def main():
+    """Main entry point for command-line usage"""
+    parser = argparse.ArgumentParser(
+        description='Sync shared files across voltage domains',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 sync_shared_files.py                  # Sync i3c project
+  python3 sync_shared_files.py --project gpio   # Sync gpio project
+  python3 sync_shared_files.py --dry-run        # Test without copying
+  python3 sync_shared_files.py --quiet          # Minimal output
+        """
+    )
+    
+    parser.add_argument(
+        '--project',
+        default='i3c',
+        help='Project name (default: i3c)'
+    )
+    
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be synced without actually copying files'
+    )
+    
+    parser.add_argument(
+        '--quiet',
+        action='store_true',
+        help='Minimal output (only show errors)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Header
+    if not args.quiet:
+        print("🔄 Syncing shared files across voltage domains...")
+        print("=" * 60)
+    
+    # Run sync
+    result = sync_shared_files(
+        project=args.project,
+        dry_run=args.dry_run,
+        verbose=not args.quiet
+    )
+    
+    # Footer
+    if not args.quiet:
+        print("=" * 60)
+        if result['success']:
+            print("✅ Sync complete!")
+        else:
+            print("⚠️  Sync completed with errors")
+            for error in result.get('errors', []):
+                print(f"   - {error}")
+    
+    # Exit code
+    sys.exit(0 if result['success'] else 1)
+
+
+if __name__ == '__main__':
+    main()
