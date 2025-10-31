@@ -322,3 +322,6 @@ development/testing/*.result
 # ============================================================================
 webapp.db
 *.db
+
+# Testing screenshots (large files)
+automation/screenshots/*.png

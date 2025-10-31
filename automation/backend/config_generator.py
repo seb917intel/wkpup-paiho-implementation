@@ -41,8 +41,8 @@ class PaiHoConfigGenerator:
         self.voltage_domain = voltage_domain
         self.repo_root = Path(repo_root)
         
-        # Path to ver03 configuration CSVs
-        self.config_path = (self.repo_root / project / voltage_domain / 
+        # Path to ver03 configuration CSVs (at repository root, not in project directories)
+        self.config_path = (self.repo_root / 
                            "dependencies/scripts/simulation_script/auto_pvt/ver03/configuration")
         
         # Load CSV tables
