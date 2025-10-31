@@ -1965,13 +1965,19 @@
             for (const temp of temps) {
                 const tempEnabled = document.querySelector(`input[name="temp"][value="${temp.value}"]`)?.checked;
                 
+                const countElement = document.getElementById(`count_${temp.key}`);
+                
                 if (!tempEnabled) {
-                    document.getElementById(`count_${temp.key}`).textContent = '0';
+                    if (countElement) {
+                        countElement.textContent = '0';
+                    }
                     continue;
                 }
                 
                 const voltageCount = document.querySelectorAll(`input[name="volt_${temp.key}"]:checked`).length;
-                document.getElementById(`count_${temp.key}`).textContent = voltageCount;
+                if (countElement) {
+                    countElement.textContent = voltageCount;
+                }
                 
                 // Calculate jobs for this temperature
                 // Mid temps (85, 100) only apply to TT corner, others get all temps
@@ -1994,49 +2000,57 @@
             
             // Update corner display
             const cornerDisplay = document.getElementById('selected-corners-display');
-            if (numCorners === 0) {
-                cornerDisplay.textContent = '⚠️ No corners selected';
-                cornerDisplay.style.color = '#f44336';
-            } else if (numCorners === 1) {
-                cornerDisplay.textContent = `1 corner (${selectedCorners[0].value})`;
-                cornerDisplay.style.color = 'white';
-            } else {
-                const cornerList = Array.from(selectedCorners).map(cb => cb.value).join(', ');
-                cornerDisplay.textContent = `${numCorners} corners (${cornerList})`;
-                cornerDisplay.style.color = 'white';
+            if (cornerDisplay) {
+                if (numCorners === 0) {
+                    cornerDisplay.textContent = '⚠️ No corners selected';
+                    cornerDisplay.style.color = '#f44336';
+                } else if (numCorners === 1) {
+                    cornerDisplay.textContent = `1 corner (${selectedCorners[0].value})`;
+                    cornerDisplay.style.color = 'white';
+                } else {
+                    const cornerList = Array.from(selectedCorners).map(cb => cb.value).join(', ');
+                    cornerDisplay.textContent = `${numCorners} corners (${cornerList})`;
+                    cornerDisplay.style.color = 'white';
+                }
             }
             
             // Update temp display
             const tempDisplay = document.getElementById('selected-temps-display');
-            if (tempConfigs.length === 0) {
-                tempDisplay.textContent = '⚠️ No temps/voltages selected';
-                tempDisplay.style.color = '#f44336';
-            } else {
-                tempDisplay.textContent = tempConfigs.join(', ');
-                tempDisplay.style.color = 'white';
+            if (tempDisplay) {
+                if (tempConfigs.length === 0) {
+                    tempDisplay.textContent = '⚠️ No temps/voltages selected';
+                    tempDisplay.style.color = '#f44336';
+                } else {
+                    tempDisplay.textContent = tempConfigs.join(', ');
+                    tempDisplay.style.color = 'white';
+                }
             }
             
             // Update job count display
             const jobsDisplay = document.getElementById('estimated-jobs-count');
-            if (totalJobs === 0) {
-                jobsDisplay.textContent = '⚠️ 0 jobs';
-                jobsDisplay.style.color = '#f44336';
-            } else {
-                jobsDisplay.textContent = `~${totalJobs} jobs`;
-                jobsDisplay.style.color = 'white';
+            if (jobsDisplay) {
+                if (totalJobs === 0) {
+                    jobsDisplay.textContent = '⚠️ 0 jobs';
+                    jobsDisplay.style.color = '#f44336';
+                } else {
+                    jobsDisplay.textContent = `~${totalJobs} jobs`;
+                    jobsDisplay.style.color = 'white';
+                }
             }
             
             // Estimate time (avg 1.5 min per job)
             const estimatedMinutes = Math.ceil(totalJobs * 1.5);
             const timeDisplay = document.getElementById('estimated-time');
-            if (estimatedMinutes === 0) {
-                timeDisplay.textContent = '-';
-            } else if (estimatedMinutes < 60) {
-                timeDisplay.textContent = `~${estimatedMinutes} min`;
-            } else {
-                const hours = Math.floor(estimatedMinutes / 60);
-                const mins = estimatedMinutes % 60;
-                timeDisplay.textContent = `~${hours}h ${mins}m`;
+            if (timeDisplay) {
+                if (estimatedMinutes === 0) {
+                    timeDisplay.textContent = '-';
+                } else if (estimatedMinutes < 60) {
+                    timeDisplay.textContent = `~${estimatedMinutes} min`;
+                } else {
+                    const hours = Math.floor(estimatedMinutes / 60);
+                    const mins = estimatedMinutes % 60;
+                    timeDisplay.textContent = `~${hours}h ${mins}m`;
+                }
             }
         }
         
@@ -2766,9 +2780,15 @@
                 const response = await fetch('http://localhost:5000/');
                 const data = await response.json();
                 currentUser = data.user;
-                document.getElementById('current-user').textContent = currentUser;
+                const userElement = document.getElementById('current-user');
+                if (userElement) {
+                    userElement.textContent = currentUser;
+                }
             } catch (error) {
-                document.getElementById('current-user').textContent = 'Unknown';
+                const userElement = document.getElementById('current-user');
+                if (userElement) {
+                    userElement.textContent = 'Unknown';
+                }
             }
         }
         

@@ -1532,9 +1532,9 @@ class GetSupplyConfigHandler(tornado.web.RequestHandler):
                 })
                 return
             
-            # Get project directory
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            project_dir = os.path.join(script_dir, project, voltage_domain)
+            # Get project directory - use repository root
+            from config import REPO_ROOT
+            project_dir = os.path.join(str(REPO_ROOT), project, voltage_domain)
             
             if not os.path.exists(project_dir):
                 self.set_status(404)
