@@ -1,0 +1,3459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>WKP Automation WebApp - Phase 2B</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            position: relative;
+            min-height: 120px;
+        }
+        
+        .header-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            padding-right: 300px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .timezone-selector {
+            font-size: 12px;
+            white-space: nowrap;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .timezone-btn {
+            padding: 4px 12px;
+            border: 1px solid #1976d2;
+            border-radius: 4px;
+            background: white;
+            color: #1976d2;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .timezone-btn:hover {
+            background: #1976d2;
+            color: white;
+        }
+        
+        #timezone-display {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-created { background: #e3f2fd; color: #1976d2; }
+        .status-submitted { background: #fff3e0; color: #f57c00; }
+        .status-running { background: #e8f5e9; color: #388e3c; }
+        .status-completed { background: #f3e5f5; color: #7b1fa2; }
+        .status-extracting { background: #fff3e0; color: #f57c00; }
+        .status-sorting { background: #e1f5fe; color: #0277bd; }
+        .status-backing_up { background: #fce4ec; color: #c2185b; }
+        .status-finished { background: #c8e6c9; color: #2e7d32; }
+        .status-failed { background: #ffebee; color: #c62828; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .simulation-item {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: border-color 0.3s;
+        }
+        
+        .simulation-item:hover {
+            border-color: #667eea;
+        }
+        
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .sim-id {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .sim-details {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+        
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
+        }
+        
+        /* WebSocket Status Indicator */
+        .ws-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .ws-connected {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .ws-disconnected {
+            background: #f44336;
+            color: white;
+        }
+        
+        .ws-connecting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Job Status Breakdown */
+        .job-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+        
+        .job-stat {
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .job-stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .job-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .stat-completed { background: #e8f5e9; color: #2e7d32; }
+        .stat-running { background: #e3f2fd; color: #1976d2; }
+        .stat-waiting { background: #fff3e0; color: #f57c00; }
+        .stat-errors { background: #ffebee; color: #c62828; }
+        
+        /* Refresh Overlay */
+        .refresh-overlay {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(102, 126, 234, 0.95);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: 600;
+            display: none;
+            z-index: 999;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .refresh-overlay.show {
+            display: block;
+        }
+        
+        /* Extraction Progress Indicator */
+        .extraction-progress {
+            margin: 12px 0;
+            padding: 12px;
+            background: #fff3e0;
+            border-left: 4px solid #f57c00;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .extraction-stage {
+            font-weight: 600;
+            color: #f57c00;
+            margin-bottom: 4px;
+        }
+        
+        .extraction-message {
+            color: #666;
+        }
+        
+        /* Spec Limits Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal.show {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: #1976d2;
+        }
+        
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 28px;
+            text-align: center;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        .spec-limits-grid {
+            display: grid;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .spec-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #1976d2;
+        }
+        
+        .spec-item-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .spec-inputs {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .spec-inputs label {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .spec-inputs input {
+            margin-top: 5px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .btn-secondary {
+            background: #757575;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-secondary:hover {
+            background: #616161;
+        }
+        
+        .config-btn {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        
+        .config-btn:hover {
+            background: #1565c0;
+        }
+        
+        .btn-primary {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        
+        .btn-primary:hover {
+            background: #1565c0;
+        }
+        
+        .btn-primary:disabled,
+        .btn-primary.loading {
+            background: #9e9e9e;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        /* Loading spinner animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+        
+        /* Timezone List Styles */
+        .timezone-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .timezone-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .timezone-item.selected {
+            background: #e3f2fd;
+            border-left: 4px solid #1976d2;
+        }
+        
+        .timezone-name {
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .timezone-offset {
+            font-size: 12px;
+            color: #666;
+            margin-left: 8px;
+        }
+        
+        .timezone-group-header {
+            padding: 8px 16px;
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+        /* Voltage Input Styles */
+        .voltage-feedback {
+            margin-top: 8px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .voltage-feedback.valid {
+            display: block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 3px solid #4caf50;
+        }
+        
+        .voltage-feedback.invalid {
+            display: block;
+            background: #ffebee;
+            color: #c62828;
+            border-left: 3px solid #f44336;
+        }
+        
+        .domain-id-preview {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
+            display: none;
+        }
+        
+        .domain-id-preview.show {
+            display: block;
+        }
+        
+        .domain-id-preview strong {
+            color: #1976d2;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .existing-voltages {
+            margin-top: 12px;
+            display: none;
+        }
+        
+        .existing-voltages.show {
+            display: block;
+        }
+        
+        .existing-voltages-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        
+        .voltage-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .voltage-btn {
+            padding: 6px 12px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .voltage-btn:hover {
+            background: #1976d2;
+            color: white;
+        }
+        
+        #voltage-input.valid {
+            border-color: #4caf50;
+        }
+        
+        #voltage-input.invalid {
+            border-color: #f44336;
+        }
+        
+        /* Custom Corner Selection Styles */
+        .corner-checkbox {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .corner-checkbox:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        
+        .corner-checkbox input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            margin-top: 2px;
+            cursor: pointer;
+        }
+        
+        .corner-label {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .corner-label strong {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .corner-label small {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        /* Temperature checkbox styles (similar to corner-checkbox) */
+        .temp-checkbox {
+            display: flex;
+            align-items: flex-start;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .temp-checkbox:hover {
+            background: #f3e5f5;
+            border-color: #9c27b0;
+        }
+        
+        .temp-checkbox input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            margin-top: 2px;
+            cursor: pointer;
+        }
+        
+        .temp-label {
+            flex: 1;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .temp-label strong {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .temp-label small {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        /* Corner grid layout */
+        .corner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        
+        .preset-btn {
+            padding: 6px 12px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: #1976d2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- WebSocket Status Indicator -->
+    <div id="ws-status" class="ws-status ws-connecting">
+        <div class="ws-dot"></div>
+        <span id="ws-status-text">Connecting...</span>
+    </div>
+    
+    <!-- Refresh Overlay -->
+    <div id="refresh-overlay" class="refresh-overlay">
+        🔄 Refreshing...
+    </div>
+    
+        <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-controls">
+                <button class="config-btn" onclick="openSpecLimitsModal()">⚙️ Configure Spec Limits</button>
+                <div class="timezone-selector">
+                    🌍 <span id="timezone-display">Local (Auto)</span>
+                    <button class="timezone-btn" onclick="toggleTimezoneModal()">Change</button>
+                </div>
+            </div>
+            <h1>🔬 WKP Automation WebApp</h1>
+            <div class="subtitle">Phase 2B - Real-Time Monitoring & Results Visualization</div>
+        </div>
+        
+        <!-- Submit New Simulation -->
+        <div class="card">
+            <h2>Submit New Simulation</h2>
+            <form id="submit-form">
+                <div class="form-group">
+                    <label for="project">Project</label>
+                    <select id="project" required>
+                        <option value="i3c">I3C</option>
+                        <option value="gpio">GPIO</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="voltage-input">Voltage Domain</label>
+                    <input 
+                        type="text" 
+                        id="voltage-input" 
+                        placeholder="Enter voltage (e.g., 1.1, 1.8, 2.5)" 
+                        required
+                        data-domain-id=""
+                    >
+                    <div id="voltage-feedback" class="voltage-feedback"></div>
+                    <div id="domain-id-preview" class="domain-id-preview"></div>
+                    <div id="existing-voltages" class="existing-voltages"></div>
+                    <small class="form-help">I/O supply voltage for characterization (0.1V to 5.0V)</small>
+                </div>
+
+                <div style="margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 6px; border-left: 4px solid #ff9800;">
+                    <h4 style="margin: 0 0 12px 0; color: #333;">0️⃣ Select Voltage Condition</h4>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="voltage-condition" style="font-weight: normal; color: #555;">Select the operating voltage condition. Defaults to 'Performance' for standard PVT.</label>
+                        <select id="voltage-condition" name="voltage_condition" class="form-control">
+                            <option value="func">Functional (func)</option>
+                            <option value="perf" selected>Performance (perf)</option>
+                            <option value="htol">HTOL (High Temp Operating Life)</option>
+                            <option value="hvqk">HVQK (High Voltage Qualification)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- NEW UI: Full Custom Configuration -->
+                <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 18px;">⚙️ Custom Simulation Configuration</h3>
+                    <p style="margin: 0; font-size: 13px; opacity: 0.9;">Select corners, temperatures, and voltage sweep mode for full control</p>
+                </div>
+                
+                <!-- Custom Configuration Panel -->
+                <div id="custom-config-panel" style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
+                    
+                    <!-- Section 1: Corner Selection -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 6px; border-left: 4px solid #667eea;">
+                        <h4 style="margin: 0 0 12px 0; color: #333;">1️⃣ Select Corners</h4>
+                        
+                        <!-- Quick Presets -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; margin-bottom: 6px; color: #555; font-weight: 600; font-size: 13px;">Quick Presets:</label>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT'])">TT Only</button>
+                                <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FFG', 'SSG'])" style="background: #667eea; color: white;">⚡ Quick (3)</button>
+                                <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'FFAG', 'SSG', 'SSAG'])">Major (7)</button>
+                                <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'FFAG', 'SSG', 'SSAG', 'FFG_SSG', 'SSG_FFG'])">All (9)</button>
+                                <button type="button" class="preset-btn" onclick="clearCornerSelection()">Clear</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Corner Checkboxes -->
+                        <div class="corner-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="TT" checked onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>TT</strong> - Typical-Typical
+                                    <small style="display: block; color: #666;">Baseline corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>FFG</strong> - Fast-Fast Global
+                                    <small style="display: block; color: #666;">Lowest resistance</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>SSG</strong> - Slow-Slow Global
+                                    <small style="display: block; color: #666;">Highest resistance</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FSG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>FSG</strong> - Fast-Slow Global
+                                    <small style="display: block; color: #666;">Cross corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SFG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>SFG</strong> - Slow-Fast Global
+                                    <small style="display: block; color: #666;">Cross corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFAG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>FFAG</strong> - Fast-Fast Alternate
+                                    <small style="display: block; color: #666;">Alternate fast</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSAG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>SSAG</strong> - Slow-Slow Alternate
+                                    <small style="display: block; color: #666;">Alternate slow</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFG_SSG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>FFG_SSG</strong> - Mixed Corner
+                                    <small style="display: block; color: #666;">Fast/Slow mix</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSG_FFG" onchange="updateJobEstimate()">
+                                <span class="corner-label">
+                                    <strong>SSG_FFG</strong> - Mixed Corner
+                                    <small style="display: block; color: #666;">Slow/Fast mix</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Section 2: Temperature & Voltage Configuration -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 6px; border-left: 4px solid #764ba2;">
+                        <h4 style="margin: 0 0 15px 0; color: #333;">2️⃣ Configure Temperature & Voltage Strategy</h4>
+                        
+                        <!-- Strategy Preset Buttons -->
+                        <div style="margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <label style="display: block; margin-bottom: 10px; color: #555; font-weight: 600; font-size: 13px;">
+                                🎯 Voltage Strategy Presets:
+                            </label>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px;">
+                                <button type="button" onclick="loadPaiHoStandardPVT()" 
+                                    style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                                    🎯 Pai Ho's Standard PVT
+                                    <small style="display: block; font-size: 10px; font-weight: normal; margin-top: 4px; opacity: 0.9;">
+                                        9 corners, 2 temps, perf (~90 jobs)
+                                    </small>
+                                </button>
+                                <button type="button" onclick="loadFullSweep()" 
+                                    style="padding: 12px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                                    📊 Full Sweep
+                                    <small style="display: block; font-size: 10px; font-weight: normal; margin-top: 4px; opacity: 0.9;">
+                                        ~100 jobs (max coverage)
+                                    </small>
+                                </button>
+                                <button type="button" onclick="clearTempVoltageSelection()" 
+                                    style="padding: 12px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;">
+                                    ✏️ Custom
+                                    <small style="display: block; font-size: 10px; font-weight: normal; margin-top: 4px; opacity: 0.9;">
+                                        Manual selection
+                                    </small>
+                                </button>
+                            </div>
+                            <p style="margin: 10px 0 0 0; font-size: 11px; color: #666; line-height: 1.4;">
+                                💡 <strong>Pai Ho's Standard:</strong> 9 corners at extreme temps (-40°C, 125°C) with the 'perf' voltage condition. This is the validated, cost-optimized industry standard.<br/>
+                                📊 <strong>Full Sweep:</strong> All temperatures get all voltage combinations for maximum coverage.
+                            </p>
+                        </div>
+                        
+                        <!-- Temperature-Voltage Matrix -->
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; font-size: 11px; border-collapse: collapse; background: white;">
+                                <thead id="voltage-table-header">
+                                    <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                        <th style="padding: 10px 8px; text-align: left; border: 1px solid #ccc; position: sticky; left: 0; background: inherit;">Temperature</th>
+                                        <th style="padding: 10px 8px; text-align: center; border: 1px solid #ccc; min-width: 60px;">Enable</th>
+                                        <th colspan="5" id="voltage-header-label" style="padding: 10px 8px; text-align: center; border: 1px solid #ccc;">Voltage Combinations (Loading...)</th>
+                                        <th style="padding: 10px 8px; text-align: center; border: 1px solid #ccc; min-width: 70px;">Jobs per Corner</th>
+                                    </tr>
+                                    <tr id="voltage-column-headers" style="background: #e3f2fd; font-weight: normal;">
+                                        <!-- Will be populated dynamically by JavaScript -->
+                                    </tr>
+                                </thead>
+                                <tbody id="voltage-table-body">
+                                    <!-- Will be populated dynamically by JavaScript -->
+                                    <tr>
+                                        <td colspan="8" style="padding: 20px; text-align: center; color: #666;">
+                                            Loading voltage configuration...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Explanation Box -->
+                        <div class="explanation-box" style="margin-top: 15px; padding: 12px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
+                            <h5 style="margin: 0 0 8px 0; color: #1976d2; font-size: 13px;">
+                                💡 Understanding the Strategy
+                            </h5>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 11px; color: #555; line-height: 1.6;">
+                                <li><strong>Dual Supply:</strong> System tests VCC (supply 1) and VCCN (supply 2) at different combinations</li>
+                                <li><strong>Yellow rows (🟡):</strong> Mid-range temps (85°C, 100°C) - Only TT corner gets these, other corners skip them</li>
+                                <li><strong>Standard PVT:</strong> Extreme temps get full sweep (5V), mid temps get nominal only (1V) = 92 jobs with 9 corners</li>
+                                <li><strong>Full Sweep:</strong> All temps get all 5 voltage combinations = ~100 jobs with 9 corners</li>
+                                <li><strong>Job Calculation:</strong> Jobs = Σ(corners × enabled_temps × selected_voltages_per_temp)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Section 3: Job Estimate & Summary (formerly Section 4) -->
+                    <div style="padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 6px; color: white;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 15px;">📊 Estimated Simulation</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Selected Corners:</div>
+                                <div id="selected-corners-display" style="font-size: 16px; font-weight: 600;">1 corner (TT)</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Selected Temps:</div>
+                                <div id="selected-temps-display" style="font-size: 16px; font-weight: 600;">2 temps (-40°C, 125°C)</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Estimated Jobs:</div>
+                                <div id="estimated-jobs-count" style="font-size: 24px; font-weight: 700;">~12 jobs</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Estimated Time:</div>
+                                <div id="estimated-time" style="font-size: 24px; font-weight: 700;">~6 min</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 12px;">
+                            💡 <strong>Formula:</strong> Jobs = Corners × Temps × Voltages (3 if sweep ON, 1 if OFF)
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- OLD Custom Corner Panel (keeping for backward compatibility, hidden) -->
+                <div id="old-custom-corner-panel" style="display: none; margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 6px; border: 1px solid #ddd;">
+                    <h4 style="margin: 0 0 12px 0; color: #333;">🎨 OLD Custom Corner Selection (Deprecated)</h4>
+                    
+                    <!-- Quick Presets -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 4px;">
+                        <label style="display: block; margin-bottom: 6px; color: #555; font-weight: 600; font-size: 13px;">Quick Presets:</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT'])">Baseline (TT)</button>
+                            <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FFG', 'SSG'])">Fast/Slow (3)</button>
+                            <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'SSG'])">Common (5)</button>
+                            <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'FFAG', 'SSG', 'SSAG'])">Major (7)</button>
+                            <button type="button" class="preset-btn" onclick="applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'FFAG', 'SSG', 'SSAG', 'FFG_SSG', 'SSG_FFG'])">All (9)</button>
+                            <button type="button" class="preset-btn" onclick="clearCornerSelection()">Clear All</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Corner Checkboxes -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 4px;">
+                        <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 13px;">Select Corners:</label>
+                        <div class="corner-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="TT" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>TT</strong> - Typical-Typical
+                                    <small style="display: block; color: #666;">Baseline corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>FFG</strong> - Fast-Fast Global
+                                    <small style="display: block; color: #666;">Lowest resistance</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>SSG</strong> - Slow-Slow Global
+                                    <small style="display: block; color: #666;">Highest resistance</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FSG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>FSG</strong> - Fast-Slow Global
+                                    <small style="display: block; color: #666;">Cross corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SFG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>SFG</strong> - Slow-Fast Global
+                                    <small style="display: block; color: #666;">Cross corner</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFAG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>FFAG</strong> - Fast-Fast Alternate
+                                    <small style="display: block; color: #666;">Alternate fast</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSAG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>SSAG</strong> - Slow-Slow Alternate
+                                    <small style="display: block; color: #666;">Alternate slow</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="FFG_SSG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>FFG_SSG</strong> - Mixed Corner
+                                    <small style="display: block; color: #666;">Fast/Slow mix</small>
+                                </span>
+                            </label>
+                            <label class="corner-checkbox">
+                                <input type="checkbox" name="corner" value="SSG_FFG" onchange="updateCornerSummary()">
+                                <span class="corner-label">
+                                    <strong>SSG_FFG</strong> - Mixed Corner
+                                    <small style="display: block; color: #666;">Slow/Fast mix</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Extraction Type -->
+                    <div style="margin-bottom: 15px; padding: 10px; background: #fff; border-radius: 4px;">
+                        <label style="display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 13px;">Extraction Type:</label>
+                        <label style="display: inline-flex; align-items: center; margin-right: 20px; cursor: pointer;">
+                            <input type="radio" name="extraction" value="typical" checked onchange="updateCornerSummary()" style="margin-right: 6px;">
+                            <span>Typical (RC extraction at nominal)</span>
+                        </label>
+                        <label style="display: inline-flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="extraction" value="cross" onchange="updateCornerSummary()" style="margin-right: 6px;">
+                            <span>Cross (cworst/cbest - doubles job count)</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Summary -->
+                    <div id="corner-summary" style="padding: 12px; background: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3;">
+                        <div style="font-weight: 600; color: #1565c0; margin-bottom: 4px;">
+                            Selected: <span id="selected-corners" style="color: #0d47a1;">None</span>
+                        </div>
+                        <div style="font-size: 13px; color: #1976d2;">
+                            Estimated jobs: <span id="estimated-jobs" style="font-weight: 600;">0</span>
+                            <small style="color: #666; margin-left: 8px;">(corners × extraction × voltage sweep)</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Advanced Options (Collapsible) -->
+                <div style="margin: 20px 0; border-top: 1px solid #e0e0e0; padding-top: 15px;">
+                    <div style="cursor: pointer; color: #1976d2; font-weight: 600; user-select: none;" onclick="toggleAdvancedOptions()">
+                        ▶ Advanced Options (Custom Path & Resources) <span style="font-size: 11px; font-weight: normal; color: #666;">(Click to expand)</span>
+                    </div>
+                    <div id="advanced-options" style="display: none; margin-top: 15px; background: #f9f9f9; padding: 15px; border-radius: 6px;">
+                        
+                        <!-- NetBatch Resources -->
+                        <div style="margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 6px; border: 1px solid #e0e0e0;">
+                            <h4 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">⚙️ NetBatch Resource Allocation</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="nb-cores" style="color: #333; font-size: 13px;">CPU Cores</label>
+                                    <select id="nb-cores" style="font-size: 13px; padding: 8px;">
+                                        <option value="1">1 Core</option>
+                                        <option value="2" selected>2 Cores (Recommended)</option>
+                                        <option value="4">4 Cores</option>
+                                        <option value="8">8 Cores</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="nb-memory" style="color: #333; font-size: 13px;">Memory (GB)</label>
+                                    <select id="nb-memory" style="font-size: 13px; padding: 8px;">
+                                        <option value="1">1 GB</option>
+                                        <option value="2" selected>2 GB (Recommended)</option>
+                                        <option value="4">4 GB</option>
+                                        <option value="8">8 GB</option>
+                                        <option value="16">16 GB</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="margin-top: 8px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+                                💡 <strong>Tip:</strong> Most SPICE simulations need 2 cores and 2GB memory. Adjust if you get memory/timeout errors.
+                            </div>
+                        </div>
+                        
+                        <!-- Custom Template Path -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="custom-template-path" style="color: #333;">
+                                📁 Custom Template Directory Path
+                                <span style="font-weight: normal; font-size: 12px; color: #666; display: block; margin-top: 4px;">
+                                    By default, uses: <code style="background: #e0e0e0; padding: 2px 4px; border-radius: 3px;">/nfs/site/.../wkpup/{project}/{voltage}/template/</code><br>
+                                    Specify a different template directory to use custom netlists/settings.
+                                </span>
+                            </label>
+                            
+                            <!-- Input field with Use Default button -->
+                            <div style="display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px;">
+                                <input 
+                                    type="text" 
+                                    id="custom-template-path" 
+                                    placeholder="Enter custom path or select from history below"
+                                    style="flex: 1; font-family: monospace; font-size: 13px; padding: 8px;">
+                                <button 
+                                    type="button"
+                                    onclick="clearTemplatePath()"
+                                    style="flex: 0 0 auto; padding: 8px 16px; background: #757575; font-size: 13px;"
+                                    title="Clear custom path and use default">
+                                    🔄 Use Default
+                                </button>
+                            </div>
+                            
+                            <!-- Dropdown for path history -->
+                            <div style="margin-bottom: 8px;">
+                                <select 
+                                    id="template-path-history" 
+                                    onchange="selectTemplateFromHistory()"
+                                    style="width: 100%; font-size: 13px; padding: 8px;">
+                                    <option value="">-- Select from recent paths --</option>
+                                </select>
+                            </div>
+                            
+                            <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                                💾 <strong>Last saved:</strong> <span id="template-path-status">Using default template</span>
+                            </div>
+                        </div>
+                        <div style="background: #fff3e0; padding: 12px; border-radius: 4px; border-left: 4px solid #ff9800; font-size: 12px;">
+                            <strong>⚠️ Note:</strong> The custom template directory must contain <code>sim_tx.sp</code> (or equivalent SPICE netlist) 
+                            with all necessary circuit includes, models, and subcircuits. The simulation will copy this template instead of the default one.
+                            <br><br>
+                            <strong>Netlist Location:</strong> Currently, the circuit netlist is defined in <code>template/sim_tx.sp</code> with hardcoded includes:
+                            <ul style="margin: 8px 0 0 20px;">
+                                <li><code>.inc "/nfs/site/disks/km6_io_22/users/paihobon/simulation/.../ioss3_txana_x2.sp"</code></li>
+                                <li><code>.lib "/nfs/site/disks/km6_io_22/users/paihobon/simulation/.../cb.lib"</code></li>
+                            </ul>
+                            You can create your own template directory with modified netlist paths for testing different circuit iterations.
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" id="submit-btn">🚀 Submit Simulation</button>
+            </form>
+            
+            <div id="submit-status"></div>
+        </div>
+        
+        <!-- Active Simulations -->
+        <div class="card">
+            <h2>Your Simulations</h2>
+            
+            <!-- Search and Filter Controls -->
+            <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+                <input 
+                    type="text" 
+                    id="search-box" 
+                    placeholder="🔍 Search simulations (ID, project, status, job ID, voltage, user)..." 
+                    oninput="filterSimulations()"
+                    style="flex: 1; min-width: 250px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                
+                <select id="filter-state" onchange="filterSimulations()" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="all">All States</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed (Pending Extraction)</option>
+                    <option value="extracting">Extracting</option>
+                    <option value="finished">Finished (Extracted)</option>
+                    <option value="failed">Failed</option>
+                </select>
+                
+                <select id="filter-project" onchange="filterSimulations()" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                    <option value="all">All Projects</option>
+                    <option value="i3c">I3C</option>
+                    <option value="gpio">GPIO</option>
+                </select>
+                
+                <button onclick="loadSimulations(true)" style="padding: 10px 20px;">🔄 Refresh</button>
+                <button 
+                    onclick="clearFilters()" 
+                    style="padding: 10px 20px; background: #757575;" 
+                    title="Clear all search and filter criteria (does not delete simulations)">
+                    ✖️ Clear Filters
+                </button>
+            </div>
+            
+            <div id="filter-status" style="margin-bottom: 12px; font-size: 13px; color: #666;"></div>
+            
+            <div id="simulations-list"></div>
+        </div>
+    </div>
+    
+    <!-- Detailed Status Modal -->
+    <div id="status-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>📊 Detailed Simulation Status</h2>
+                <button class="close-btn" onclick="closeStatusModal()">&times;</button>
+            </div>
+            
+            <div id="status-modal-content">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Spec Limits Configuration Modal -->
+    <div id="spec-limits-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Configure Specification Limits</h2>
+                <button class="close-btn" onclick="closeSpecLimitsModal()">&times;</button>
+            </div>
+            
+            <div style="background: #e3f2fd; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 13px;">
+                ℹ️ <strong>Info:</strong> Custom spec limits override defaults. Leave fields empty to use defaults. 
+                Click "Reset to Defaults" to remove all custom limits.
+            </div>
+            
+            <div id="spec-limits-status"></div>
+            
+            <div class="spec-limits-grid">
+                <div class="spec-item">
+                    <div class="spec-item-header">rwkpull_vih - Weak Pull-Up Resistance at VIH (Ohms)</div>
+                    <div class="spec-inputs">
+                        <label>
+                            Min (Ω)
+                            <input type="number" id="rwkpull_vih_min" placeholder="1500">
+                        </label>
+                        <label>
+                            Max (Ω)
+                            <input type="number" id="rwkpull_vih_max" placeholder="2500">
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="spec-item">
+                    <div class="spec-item-header">rwkpull_vil - Weak Pull-Up Resistance at VIL (Ohms)</div>
+                    <div class="spec-inputs">
+                        <label>
+                            Min (Ω)
+                            <input type="number" id="rwkpull_vil_min" placeholder="1500">
+                        </label>
+                        <label>
+                            Max (Ω)
+                            <input type="number" id="rwkpull_vil_max" placeholder="2500">
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="spec-item">
+                    <div class="spec-item-header">rwkpulld_vih - Weak Pull-Down Resistance at VIH (Ohms)</div>
+                    <div class="spec-inputs">
+                        <label>
+                            Min (Ω)
+                            <input type="number" id="rwkpulld_vih_min" placeholder="1500">
+                        </label>
+                        <label>
+                            Max (Ω)
+                            <input type="number" id="rwkpulld_vih_max" placeholder="2500">
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="spec-item">
+                    <div class="spec-item-header">rwkpulld_vil - Weak Pull-Down Resistance at VIL (Ohms)</div>
+                    <div class="spec-inputs">
+                        <label>
+                            Min (Ω)
+                            <input type="number" id="rwkpulld_vil_min" placeholder="1500">
+                        </label>
+                        <label>
+                            Max (Ω)
+                            <input type="number" id="rwkpulld_vil_max" placeholder="2500">
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="resetSpecLimits()">🔄 Reset to Defaults</button>
+                <button class="btn-secondary" onclick="closeSpecLimitsModal()">Cancel</button>
+                <button id="save-spec-limits-btn" class="btn-primary" onclick="saveSpecLimits()">💾 Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Timezone Selection Modal -->
+    <div id="timezone-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🌍 Select Timezone</h2>
+                <button class="close-btn" onclick="closeTimezoneModal()">&times;</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <input 
+                    type="text" 
+                    id="timezone-search" 
+                    placeholder="🔍 Search by city, country, or timezone..."
+                    style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 14px;"
+                    oninput="filterTimezones()">
+            </div>
+            
+            <div style="margin-bottom: 15px; padding: 10px; background: #e3f2fd; border-radius: 4px; font-size: 13px;">
+                <strong>💡 Tip:</strong> Your current timezone is auto-detected. Search by city name for easiest selection.
+            </div>
+            
+            <div id="timezone-list" style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px;">
+                <!-- Populated by JavaScript -->
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeTimezoneModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Cache Buster - Force reload from server
+        (function() {
+            const timestamp = Date.now();
+            const buildVersion = '2025-10-23-v11';  // Update this to force cache invalidation
+            console.log('Cache Buster Active - Build:', buildVersion, '| Timestamp:', timestamp);
+            
+            // Add timestamp to all fetch requests
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                if (typeof url === 'string' && url.includes('/api/')) {
+                    const separator = url.includes('?') ? '&' : '?';
+                    url = url + separator + '_t=' + timestamp + '&_v=' + buildVersion;
+                }
+                return originalFetch(url, options);
+            };
+        })();
+        
+        const API_BASE = 'http://localhost:5000/api';
+        let currentUser = '';
+        let ws = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        let userTimezone = 'local';  // Default to local timezone
+        
+        // Toggle advanced options
+        function toggleAdvancedOptions() {
+            const advDiv = document.getElementById('advanced-options');
+            const isVisible = advDiv.style.display !== 'none';
+            advDiv.style.display = isVisible ? 'none' : 'block';
+            event.target.innerHTML = isVisible ? 
+                '▶ Advanced Options (Custom Path & Resources) <span style="font-size: 11px; font-weight: normal; color: #666;">(Click to expand)</span>' :
+                '▼ Advanced Options (Custom Path & Resources) <span style="font-size: 11px; font-weight: normal; color: #666;">(Click to collapse)</span>';
+        }
+        
+        // ========================================
+        // Custom Corner Selection
+        // ========================================
+        
+        // Toggle custom corner panel when dropdown changes
+        document.addEventListener('DOMContentLoaded', function() {
+            // ... existing code ...
+            
+            // ROOT CAUSE #6 FIX: Initialize voltage table on page load
+            // Wait a bit for voltage validation to complete
+            setTimeout(() => {
+                initializeVoltageTable().then(() => {
+                    // After voltage table is ready, apply Pai Ho's standard as default
+                    console.log("Applying Pai Ho's Standard PVT as default configuration.");
+                    loadPaiHoStandardPVT();
+                });
+            }, 500);
+        });
+        
+        // ========================================
+        // NEW UI REDESIGN - Corner Selection Functions
+        // ========================================
+        
+        function applyCornerPreset(corners) {
+            // Clear all checkboxes first
+            document.querySelectorAll('input[name="corner"]').forEach(cb => cb.checked = false);
+            
+            // Check selected corners
+            corners.forEach(corner => {
+                const checkbox = document.querySelector(`input[name="corner"][value="${corner}"]`);
+                if (checkbox) checkbox.checked = true;
+            });
+            
+            updateJobEstimate();
+        }
+        
+        function clearCornerSelection() {
+            document.querySelectorAll('input[name="corner"]').forEach(cb => cb.checked = false);
+            updateJobEstimate();
+        }
+        
+        // ========================================
+        // NEW UI REDESIGN - Temperature Selection Functions
+        // ========================================
+        
+        function applyTempPreset(temps) {
+            // Clear all checkboxes first
+            document.querySelectorAll('input[name="temp"]').forEach(cb => cb.checked = false);
+            
+            // Check selected temps
+            temps.forEach(temp => {
+                const checkbox = document.querySelector(`input[name="temp"][value="${temp}"]`);
+                if (checkbox) checkbox.checked = true;
+            });
+            
+            updateJobEstimate();
+        }
+        
+        function clearTempSelection() {
+            document.querySelectorAll('input[name="temp"]').forEach(cb => cb.checked = false);
+            updateJobEstimate();
+        }
+        
+        // ========================================
+        // NEW: Voltage Strategy Preset Functions
+        // ========================================
+        
+        function loadPaiHoStandardPVT() {
+            // Pai Ho's Standard PVT: 9 corners, 2 temps (-40, 125), 'perf' condition
+            
+            // 1. Set Voltage Condition to 'perf'
+            document.getElementById('voltage-condition').value = 'perf';
+            
+            // 2. Select all 9 corners
+            applyCornerPreset(['TT', 'FSG', 'SFG', 'FFG', 'FFAG', 'SSG', 'SSAG', 'FFG_SSG', 'SSG_FFG']);
+            
+            // 3. Set temperatures and voltages
+            if (!currentSupplyConfig) {
+                showToast('⚠️ Please wait for voltage configuration to load', 'warning');
+                return;
+            }
+            
+            const voltageOptions = getVoltageOptions(currentSupplyConfig.supply2, currentSupplyConfig.supply3);
+            const allVoltages = voltageOptions.map(v => v.value);
+            
+            // Enable only extreme temperatures
+            setTempEnabled('-40', true);
+            setTempEnabled('125', true);
+            
+            // Disable mid temperatures
+            setTempEnabled('85', false);
+            setTempEnabled('100', false);
+            
+            // Set full voltage sweep for extreme temperatures
+            setTempVoltages('m40', allVoltages);
+            setTempVoltages('125', allVoltages);
+            
+            updateTempVoltageCount();
+            
+            showToast("✅ Pai Ho's Standard PVT loaded (9 corners, 2 temps, perf)", 'success');
+        }
+        
+        function loadStandardPVT() {
+            // Standard PVT: Pai Ho's proven methodology (92 jobs with 9 corners)
+            // - Extreme temps (-40, 125): Full 5-voltage sweep
+            // - Mid temps (85, 100): Nominal only (1 voltage)
+            
+            // Enable all temperatures
+            setTempEnabled('-40', true);
+            setTempEnabled('85', true);
+            setTempEnabled('100', true);
+            setTempEnabled('125', true);
+            
+            // -40°C: All 5 voltage combinations
+            setTempVoltages('m40', ['v1min_v2min', 'v1min_v2max', 'v1max_v2min', 'v1max_v2max', 'v1nom_v2nom']);
+            
+            // 85°C: Nominal only
+            setTempVoltages('85', ['v1nom_v2nom']);
+            
+            // 100°C: Nominal only
+            setTempVoltages('100', ['v1nom_v2nom']);
+            
+            // 125°C: All 5 voltage combinations
+            setTempVoltages('125', ['v1min_v2min', 'v1min_v2max', 'v1max_v2min', 'v1max_v2max', 'v1nom_v2nom']);
+            
+            updateTempVoltageCount();
+            
+            // Show success message
+            showToast('✅ Standard PVT configuration loaded (~92 jobs with 9 corners)', 'success');
+        }
+        
+        function loadFullSweep() {
+            // Full Sweep: All temperatures get all 5 voltage combinations (~100 jobs with 9 corners)
+            
+            const allVoltages = ['v1min_v2min', 'v1min_v2max', 'v1max_v2min', 'v1max_v2max', 'v1nom_v2nom'];
+            const temps = ['-40', '85', '100', '125'];
+            const tempKeys = ['m40', '85', '100', '125'];
+            
+            for (let i = 0; i < temps.length; i++) {
+                setTempEnabled(temps[i], true);
+                setTempVoltages(tempKeys[i], allVoltages);
+            }
+            
+            updateTempVoltageCount();
+            
+            // Show success message
+            showToast('✅ Full Sweep configuration loaded (~100 jobs with 9 corners)', 'success');
+        }
+        
+        function clearTempVoltageSelection() {
+            // Clear all temperature and voltage selections
+            
+            document.querySelectorAll('input[name="temp"]').forEach(cb => cb.checked = false);
+            
+            const tempKeys = ['m40', '85', '100', '125'];
+            for (const tempKey of tempKeys) {
+                document.querySelectorAll(`input[name="volt_${tempKey}"]`).forEach(cb => cb.checked = false);
+            }
+            
+            updateTempVoltageCount();
+            
+            // Show message
+            showToast('🧹 Selection cleared - ready for custom configuration', 'info');
+        }
+        
+        // Helper: Set temperature enabled/disabled
+        function setTempEnabled(tempValue, enabled) {
+            const checkbox = document.querySelector(`input[name="temp"][value="${tempValue}"]`);
+            if (checkbox) {
+                checkbox.checked = enabled;
+            }
+        }
+        
+        // Helper: Set voltage checkboxes for a temperature
+        function setTempVoltages(tempKey, voltageList) {
+            // First uncheck all
+            const allCheckboxes = document.querySelectorAll(`input[name="volt_${tempKey}"]`);
+            allCheckboxes.forEach(cb => cb.checked = false);
+            
+            // Then check selected ones
+            voltageList.forEach(voltage => {
+                const cb = document.querySelector(`input[name="volt_${tempKey}"][value="${voltage}"]`);
+                if (cb) cb.checked = true;
+            });
+        }
+        
+        // Helper: Show toast notification
+        function showToast(message, type = 'info') {
+            // Create toast element if it doesn't exist
+            let toast = document.getElementById('toast-notification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast-notification';
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    background: white;
+                    border-radius: 6px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 10000;
+                    max-width: 400px;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                `;
+                document.body.appendChild(toast);
+            }
+            
+            // Set color based on type
+            const colors = {
+                'success': '#4caf50',
+                'error': '#f44336',
+                'info': '#2196f3',
+                'warning': '#ff9800'
+            };
+            toast.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+            
+            // Set message
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            
+            // Auto hide after 3 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+        
+        // ========================================
+        // ROOT CAUSE #6 FIX: Dynamic Voltage Table Generation
+        // ========================================
+        
+        // Global variable to store supply configuration
+        let currentSupplyConfig = null;
+        
+        /**
+         * Initialize voltage table based on project configuration
+         * Called when page loads and when project/voltage changes
+         */
+        async function initializeVoltageTable() {
+            const project = document.getElementById('project').value;
+            const voltageInput = document.getElementById('voltage-input');
+            const voltageDomain = voltageInput.dataset.domainId;
+            
+            if (!project || !voltageDomain) {
+                console.log('Project or voltage domain not set, skipping voltage table init');
+                return;
+            }
+            
+            try {
+                // Fetch supply configuration from backend
+                const response = await fetch(`${API_BASE}/supply-config?project=${encodeURIComponent(project)}&voltage_domain=${encodeURIComponent(voltageDomain)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const config = await response.json();
+                
+                if (!config.success) {
+                    throw new Error(config.error || 'Failed to load supply configuration');
+                }
+                
+                // Store configuration
+                currentSupplyConfig = config;
+                
+                console.log('Supply configuration loaded:', config);
+                
+                // Generate voltage table
+                generateVoltageTable(config);
+                
+                // Update explanation text
+                updateExplanationText(config);
+                
+            } catch (error) {
+                console.error('Error loading supply configuration:', error);
+                
+                // Fallback to single supply
+                const fallbackConfig = {
+                    project: project,
+                    voltage_domain: voltageDomain,
+                    supply1: 'vcc',
+                    supply2: 'NA',
+                    supply3: 'NA',
+                    voltage_count: 3
+                };
+                
+                currentSupplyConfig = fallbackConfig;
+                generateVoltageTable(fallbackConfig);
+            }
+        }
+        
+        /**
+         * Generate voltage combinations based on supply configuration
+         */
+        function getVoltageOptions(supply2, supply3) {
+            if (supply3 !== 'NA') {
+                // Triple supply: 9 combinations
+                return [
+                    { value: 'v1min_v2min_v3min', label: 'v1min/v2min/v3min', short: 'min/min/min' },
+                    { value: 'v1min_v2min_v3max', label: 'v1min/v2min/v3max', short: 'min/min/max' },
+                    { value: 'v1min_v2max_v3min', label: 'v1min/v2max/v3min', short: 'min/max/min' },
+                    { value: 'v1min_v2max_v3max', label: 'v1min/v2max/v3max', short: 'min/max/max' },
+                    { value: 'v1max_v2min_v3min', label: 'v1max/v2min/v3min', short: 'max/min/min' },
+                    { value: 'v1max_v2min_v3max', label: 'v1max/v2min/v3max', short: 'max/min/max' },
+                    { value: 'v1max_v2max_v3min', label: 'v1max/v2max/v3min', short: 'max/max/min' },
+                    { value: 'v1max_v2max_v3max', label: 'v1max/v2max/v3max', short: 'max/max/max' },
+                    { value: 'v1nom_v2nom_v3nom', label: 'v1nom/v2nom/v3nom', short: 'nominal' }
+                ];
+            } else if (supply2 !== 'NA') {
+                // Dual supply: 5 combinations
+                return [
+                    { value: 'v1min_v2min', label: 'v1min/v2min', short: 'min/min' },
+                    { value: 'v1min_v2max', label: 'v1min/v2max', short: 'min/max' },
+                    { value: 'v1max_v2min', label: 'v1max/v2min', short: 'max/min' },
+                    { value: 'v1max_v2max', label: 'v1max/v2max', short: 'max/max' },
+                    { value: 'v1nom_v2nom', label: 'v1nom/v2nom', short: 'nominal' }
+                ];
+            } else {
+                // Single supply: 3 voltages
+                return [
+                    { value: 'v1min', label: 'v1min', short: 'minimum' },
+                    { value: 'v1nom', label: 'v1nom', short: 'nominal' },
+                    { value: 'v1max', label: 'v1max', short: 'maximum' }
+                ];
+            }
+        }
+        
+        /**
+         * Generate the voltage table header and body
+         */
+        function generateVoltageTable(config) {
+            const voltageOptions = getVoltageOptions(config.supply2, config.supply3);
+            
+            // Update header label
+            const headerLabel = document.getElementById('voltage-header-label');
+            headerLabel.setAttribute('colspan', voltageOptions.length);
+            
+            let supplyText = '';
+            if (config.supply3 !== 'NA') {
+                supplyText = `Triple Supply: ${config.supply1}, ${config.supply2}, ${config.supply3}`;
+            } else if (config.supply2 !== 'NA') {
+                supplyText = `Dual Supply: ${config.supply1} + ${config.supply2.toUpperCase()}`;
+            } else {
+                supplyText = `Single Supply: ${config.supply1.toUpperCase()} only`;
+            }
+            headerLabel.textContent = `Voltage Combinations (${supplyText})`;
+            
+            // Generate column headers
+            const columnHeadersRow = document.getElementById('voltage-column-headers');
+            columnHeadersRow.innerHTML = `
+                <th style="padding: 6px 8px; border: 1px solid #ccc;"></th>
+                <th style="padding: 6px 8px; border: 1px solid #ccc;"></th>
+                ${voltageOptions.map(v => `
+                    <th style="padding: 6px 4px; text-align: center; border: 1px solid #ccc; min-width: 65px;">
+                        <small style="font-weight: 600;">${v.label.replace('/', '<br/>')}</small>
+                        <small style="display: block; color: #666; font-size: 9px;">${v.short}</small>
+                    </th>
+                `).join('')}
+                <th style="padding: 6px 8px; border: 1px solid #ccc;"></th>
+            `;
+            
+            // Generate temperature rows
+            const tbody = document.getElementById('voltage-table-body');
+            const temperatures = [
+                { key: 'm40', value: '-40', label: '-40°C', icon: '❄️', desc: 'Extreme cold', bgColor: '#fff', isExtreme: true },
+                { key: '85', value: '85', label: '85°C', icon: '🌡️', desc: 'Mid-hot 🟡 TT only', bgColor: '#fffacd', isExtreme: false },
+                { key: '100', value: '100', label: '100°C', icon: '🌡️', desc: 'Mid-hot 🟡 TT only', bgColor: '#fffacd', isExtreme: false },
+                { key: '125', value: '125', label: '125°C', icon: '🔥', desc: 'Extreme hot', bgColor: '#fff', isExtreme: true }
+            ];
+            
+            tbody.innerHTML = temperatures.map(temp => {
+                // Determine default selections (Standard PVT logic)
+                const defaultChecked = temp.isExtreme;  // Extreme temps: all voltages checked, Mid temps: only nominal
+                
+                return `
+                    <tr data-temp="${temp.key}" style="background: ${temp.bgColor};">
+                        <td style="padding: 10px 8px; border: 1px solid #ccc; font-weight: 600; background: ${temp.bgColor};">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 18px;">${temp.icon}</span>
+                                <div>
+                                    <div style="font-size: 13px;">${temp.label}</div>
+                                    <small style="color: #666; font-weight: normal; font-size: 10px;">${temp.desc}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding: 10px 8px; text-align: center; border: 1px solid #ccc;">
+                            <input type="checkbox" name="temp" value="${temp.value}" ${defaultChecked ? 'checked' : ''} onchange="updateTempVoltageCount()" style="width: 18px; height: 18px; cursor: pointer;">
+                        </td>
+                        ${voltageOptions.map((v, idx) => {
+                            // For mid temps, only check nominal (last option)
+                            // For extreme temps, check all
+                            const checked = temp.isExtreme || (idx === voltageOptions.length - 1);
+                            return `
+                                <td style="padding: 8px 4px; text-align: center; border: 1px solid #ccc;">
+                                    <input type="checkbox" name="volt_${temp.key}" value="${v.value}" ${checked ? 'checked' : ''} onchange="updateTempVoltageCount()" style="width: 16px; height: 16px; cursor: pointer;">
+                                </td>
+                            `;
+                        }).join('')}
+                        <td style="padding: 10px 8px; text-align: center; border: 1px solid #ccc; font-weight: 600; font-size: 13px;">
+                            <span id="count_${temp.key}" style="color: #764ba2;">${defaultChecked ? voltageOptions.length : 1}</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Trigger count update
+            updateTempVoltageCount();
+        }
+        
+        /**
+         * Update the explanation text based on supply configuration
+         */
+        function updateExplanationText(config) {
+            const explanationList = document.querySelector('.explanation-box ul');
+            if (!explanationList) return;
+            
+            let supplyDesc = '';
+            let voltageCount = config.voltage_count;
+            
+            if (config.supply3 !== 'NA') {
+                supplyDesc = `<strong>Triple Supply:</strong> System tests ${config.supply1.toUpperCase()}, ${config.supply2.toUpperCase()}, and ${config.supply3.toUpperCase()} at 9 different combinations`;
+            } else if (config.supply2 !== 'NA') {
+                supplyDesc = `<strong>Dual Supply:</strong> System tests ${config.supply1.toUpperCase()} (supply 1) and ${config.supply2.toUpperCase()} (supply 2) at different combinations`;
+            } else {
+                supplyDesc = `<strong>Single Supply:</strong> System tests ${config.supply1.toUpperCase()} at minimum, nominal, and maximum voltages`;
+            }
+            
+            // Update first list item
+            explanationList.querySelector('li:first-child').innerHTML = supplyDesc;
+        }
+        
+        /**
+         * Update loadStandardPVT function to work with dynamic voltage table
+         */
+        function loadStandardPVT() {
+            if (!currentSupplyConfig) {
+                showToast('⚠️ Please wait for voltage configuration to load', 'warning');
+                return;
+            }
+            
+            const voltageOptions = getVoltageOptions(currentSupplyConfig.supply2, currentSupplyConfig.supply3);
+            const allVoltages = voltageOptions.map(v => v.value);
+            const nominalVoltage = allVoltages[allVoltages.length - 1];  // Last option is always nominal
+            
+            // Enable all temperatures
+            setTempEnabled('-40', true);
+            setTempEnabled('85', true);
+            setTempEnabled('100', true);
+            setTempEnabled('125', true);
+            
+            // Extreme temps: All voltages
+            setTempVoltages('m40', allVoltages);
+            setTempVoltages('125', allVoltages);
+            
+            // Mid temps: Nominal only
+            setTempVoltages('85', [nominalVoltage]);
+            setTempVoltages('100', [nominalVoltage]);
+            
+            updateTempVoltageCount();
+            
+            const jobEstimate = currentSupplyConfig.voltage_count === 3 ? '~36 jobs' : '~92 jobs';
+            showToast(`✅ Standard PVT configuration loaded (${jobEstimate} with 9 corners)`, 'success');
+        }
+        
+        /**
+         * Update loadFullSweep function to work with dynamic voltage table
+         */
+        function loadFullSweep() {
+            if (!currentSupplyConfig) {
+                showToast('⚠️ Please wait for voltage configuration to load', 'warning');
+                return;
+            }
+            
+            const voltageOptions = getVoltageOptions(currentSupplyConfig.supply2, currentSupplyConfig.supply3);
+            const allVoltages = voltageOptions.map(v => v.value);
+            
+            const temps = ['-40', '85', '100', '125'];
+            const tempKeys = ['m40', '85', '100', '125'];
+            
+            for (let i = 0; i < temps.length; i++) {
+                setTempEnabled(temps[i], true);
+                setTempVoltages(tempKeys[i], allVoltages);
+            }
+            
+            updateTempVoltageCount();
+            
+            const jobEstimate = currentSupplyConfig.voltage_count === 3 ? '~48 jobs' : '~100 jobs';
+            showToast(`✅ Full Sweep configuration loaded (${jobEstimate} with 9 corners)`, 'success');
+        }
+        
+        // ========================================
+        // NEW: Per-Temperature Voltage Count Update
+        // ========================================
+        
+        function updateTempVoltageCount() {
+            const temps = [
+                { key: 'm40', value: '-40', isMidTemp: false },
+                { key: '85', value: '85', isMidTemp: true },
+                { key: '100', value: '100', isMidTemp: true },
+                { key: '125', value: '125', isMidTemp: false }
+            ];
+            
+            let totalJobs = 0;
+            const selectedCorners = Array.from(document.querySelectorAll('input[name="corner"]:checked'));
+            const numCorners = selectedCorners.length;
+            const hasTT = selectedCorners.some(cb => cb.value === 'TT');
+            
+            const tempConfigs = [];
+            
+            for (const temp of temps) {
+                const tempEnabled = document.querySelector(`input[name="temp"][value="${temp.value}"]`)?.checked;
+                
+                const countElement = document.getElementById(`count_${temp.key}`);
+                
+                if (!tempEnabled) {
+                    if (countElement) {
+                        countElement.textContent = '0';
+                    }
+                    continue;
+                }
+                
+                const voltageCount = document.querySelectorAll(`input[name="volt_${temp.key}"]:checked`).length;
+                if (countElement) {
+                    countElement.textContent = voltageCount;
+                }
+                
+                // Calculate jobs for this temperature
+                // Mid temps (85, 100) only apply to TT corner, others get all temps
+                let jobsForThisTemp;
+                if (temp.isMidTemp) {
+                    // Only TT corner gets mid temps
+                    jobsForThisTemp = hasTT ? voltageCount : 0;
+                } else {
+                    // All corners get extreme temps
+                    jobsForThisTemp = numCorners * voltageCount;
+                }
+                
+                totalJobs += jobsForThisTemp;
+                
+                if (voltageCount > 0 && tempEnabled) {
+                    const displayTemp = temp.value === '-40' ? '-40°C' : `${temp.value}°C`;
+                    tempConfigs.push(`${displayTemp}(${voltageCount}V)`);
+                }
+            }
+            
+            // Update corner display
+            const cornerDisplay = document.getElementById('selected-corners-display');
+            if (cornerDisplay) {
+                if (numCorners === 0) {
+                    cornerDisplay.textContent = '⚠️ No corners selected';
+                    cornerDisplay.style.color = '#f44336';
+                } else if (numCorners === 1) {
+                    cornerDisplay.textContent = `1 corner (${selectedCorners[0].value})`;
+                    cornerDisplay.style.color = 'white';
+                } else {
+                    const cornerList = Array.from(selectedCorners).map(cb => cb.value).join(', ');
+                    cornerDisplay.textContent = `${numCorners} corners (${cornerList})`;
+                    cornerDisplay.style.color = 'white';
+                }
+            }
+            
+            // Update temp display
+            const tempDisplay = document.getElementById('selected-temps-display');
+            if (tempDisplay) {
+                if (tempConfigs.length === 0) {
+                    tempDisplay.textContent = '⚠️ No temps/voltages selected';
+                    tempDisplay.style.color = '#f44336';
+                } else {
+                    tempDisplay.textContent = tempConfigs.join(', ');
+                    tempDisplay.style.color = 'white';
+                }
+            }
+            
+            // Update job count display
+            const jobsDisplay = document.getElementById('estimated-jobs-count');
+            if (jobsDisplay) {
+                if (totalJobs === 0) {
+                    jobsDisplay.textContent = '⚠️ 0 jobs';
+                    jobsDisplay.style.color = '#f44336';
+                } else {
+                    jobsDisplay.textContent = `~${totalJobs} jobs`;
+                    jobsDisplay.style.color = 'white';
+                }
+            }
+            
+            // Estimate time (avg 1.5 min per job)
+            const estimatedMinutes = Math.ceil(totalJobs * 1.5);
+            const timeDisplay = document.getElementById('estimated-time');
+            if (timeDisplay) {
+                if (estimatedMinutes === 0) {
+                    timeDisplay.textContent = '-';
+                } else if (estimatedMinutes < 60) {
+                    timeDisplay.textContent = `~${estimatedMinutes} min`;
+                } else {
+                    const hours = Math.floor(estimatedMinutes / 60);
+                    const mins = estimatedMinutes % 60;
+                    timeDisplay.textContent = `~${hours}h ${mins}m`;
+                }
+            }
+        }
+        
+        // Backward compatibility: keep updateJobEstimate as alias
+        function updateJobEstimate() {
+            updateTempVoltageCount();
+        }
+        
+        // ========================================
+        // NEW UI REDESIGN - Data Collection for Form Submission
+        // ========================================
+        
+        function getSelectedCorners() {
+            // NEW FORMAT: Return corners, temperatures, and per-temperature voltage selections
+            const selectedCorners = Array.from(document.querySelectorAll('input[name="corner"]:checked'))
+                .map(cb => cb.value);
+            const selectedTemps = Array.from(document.querySelectorAll('input[name="temp"]:checked'))
+                .map(cb => cb.value);
+            
+            if (selectedCorners.length === 0) {
+                throw new Error('Please select at least one corner');
+            }
+            
+            if (selectedTemps.length === 0) {
+                throw new Error('Please select at least one temperature');
+            }
+            
+            // NEW: Collect per-temperature voltage specifications
+            const tempVoltageMap = {};
+            const tempKeys = {
+                '-40': 'm40',
+                '85': '85',
+                '100': '100',
+                '125': '125'
+            };
+            
+            for (const temp of selectedTemps) {
+                const tempKey = tempKeys[temp];
+                const selectedVoltages = Array.from(document.querySelectorAll(`input[name="volt_${tempKey}"]:checked`))
+                    .map(cb => cb.value);
+                
+                if (selectedVoltages.length === 0) {
+                    throw new Error(`Temperature ${temp}°C is enabled but no voltages selected. Please select at least one voltage combination.`);
+                }
+                
+                // Store as temp_m40_voltages, temp_85_voltages, etc.
+                tempVoltageMap[`temp_${temp}_voltages`] = selectedVoltages.join(',');
+            }
+            
+            return {
+                corners: selectedCorners,
+                temperatures: selectedTemps,
+                ...tempVoltageMap  // Spread operator to include all temp_XX_voltages fields
+            };
+        }
+        
+        // ========================================
+        // NetBatch Resource Persistence
+        // ========================================
+        
+        function loadNetBatchResources() {
+            const savedCores = localStorage.getItem('nbCores');
+            const savedMemory = localStorage.getItem('nbMemory');
+            
+            if (savedCores) {
+                document.getElementById('nb-cores').value = savedCores;
+            }
+            if (savedMemory) {
+                document.getElementById('nb-memory').value = savedMemory;
+            }
+        }
+        
+        function saveNetBatchResources(cores, memory) {
+            localStorage.setItem('nbCores', cores);
+            localStorage.setItem('nbMemory', memory);
+        }
+        
+        // ========================================
+        // Voltage Input Validation
+        // ========================================
+        
+        let validationTimeout = null;
+        let currentValidation = { valid: false, domain_id: '' };
+        
+        async function validateVoltageInput(voltageInput) {
+            const feedbackDiv = document.getElementById('voltage-feedback');
+            const previewDiv = document.getElementById('domain-id-preview');
+            const inputField = document.getElementById('voltage-input');
+            
+            // Clear previous validation
+            feedbackDiv.className = 'voltage-feedback';
+            feedbackDiv.style.display = 'none';
+            previewDiv.className = 'domain-id-preview';
+            inputField.className = '';
+            
+            if (!voltageInput || voltageInput.trim() === '') {
+                currentValidation = { valid: false, domain_id: '' };
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/validate-voltage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ voltage: voltageInput })
+                });
+                
+                const result = await response.json();
+                currentValidation = result;
+                
+                if (result.valid) {
+                    feedbackDiv.className = 'voltage-feedback valid';
+                    feedbackDiv.textContent = `✓ Valid voltage: ${result.voltage}V`;
+                    inputField.className = 'valid';
+                    inputField.dataset.domainId = result.domain_id;
+                    
+                    previewDiv.className = 'domain-id-preview show';
+                    previewDiv.innerHTML = `Domain ID: <strong>${result.domain_id}</strong>`;
+                    
+                    // Save to localStorage
+                    saveLastVoltage(result.voltage);
+                    
+                    // ROOT CAUSE #6 FIX: Initialize voltage table when voltage domain changes
+                    initializeVoltageTable();
+                } else {
+                    feedbackDiv.className = 'voltage-feedback invalid';
+                    feedbackDiv.textContent = `✗ ${result.error}`;
+                    inputField.className = 'invalid';
+                    inputField.dataset.domainId = '';
+                    previewDiv.className = 'domain-id-preview';
+                }
+                
+            } catch (error) {
+                console.error('Validation error:', error);
+                feedbackDiv.className = 'voltage-feedback invalid';
+                feedbackDiv.textContent = '✗ Validation failed';
+                inputField.className = 'invalid';
+                currentValidation = { valid: false, domain_id: '' };
+            }
+        }
+        
+        function setupVoltageInputListeners() {
+            const voltageInput = document.getElementById('voltage-input');
+            
+            voltageInput.addEventListener('input', function() {
+                // Debounce validation (wait 500ms after user stops typing)
+                clearTimeout(validationTimeout);
+                validationTimeout = setTimeout(() => {
+                    validateVoltageInput(this.value.trim());
+                }, 500);
+            });
+            
+            // Load last used voltage
+            const lastVoltage = localStorage.getItem('lastVoltage');
+            if (lastVoltage) {
+                voltageInput.value = lastVoltage;
+                validateVoltageInput(lastVoltage);
+            }
+        }
+        
+        async function loadExistingVoltages() {
+            const project = document.getElementById('project').value;
+            const existingDiv = document.getElementById('existing-voltages');
+            
+            if (!project) {
+                existingDiv.className = 'existing-voltages';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/voltage-domains/${project}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.voltage_domains && data.voltage_domains.length > 0) {
+                    const buttonsHTML = data.voltage_domains
+                        .map(domain => 
+                            `<button type="button" class="voltage-btn" onclick="useExistingVoltage(${domain.voltage})">${domain.voltage}V</button>`
+                        )
+                        .join('');
+                    
+                    existingDiv.innerHTML = `
+                        <div class="existing-voltages-label">Previously used voltages:</div>
+                        <div class="voltage-buttons">${buttonsHTML}</div>
+                    `;
+                    existingDiv.className = 'existing-voltages show';
+                } else {
+                    existingDiv.className = 'existing-voltages';
+                }
+            } catch (error) {
+                console.error('Error loading existing voltages:', error);
+                existingDiv.className = 'existing-voltages';
+            }
+        }
+        
+        function useExistingVoltage(voltage) {
+            const voltageInput = document.getElementById('voltage-input');
+            voltageInput.value = voltage;
+            validateVoltageInput(String(voltage));
+        }
+        
+        function saveLastVoltage(voltage) {
+            localStorage.setItem('lastVoltage', voltage);
+        }
+        
+        // Load existing voltages when project changes
+        document.getElementById('project').addEventListener('change', function() {
+            loadExistingVoltages();
+            // ROOT CAUSE #6 FIX: Reinitialize voltage table when project changes
+            initializeVoltageTable();
+        });
+        
+        // ========================================
+        // Template Path Persistence & History
+        // ========================================
+        
+        const MAX_PATH_HISTORY = 10;  // Keep last 10 paths
+        
+        function loadTemplatePathHistory() {
+            // Load saved path
+            const savedPath = localStorage.getItem('customTemplatePath');
+            const pathHistory = JSON.parse(localStorage.getItem('templatePathHistory') || '[]');
+            
+            // Update input field with last saved path
+            const input = document.getElementById('custom-template-path');
+            if (savedPath && savedPath !== 'default') {
+                input.value = savedPath;
+                updateTemplatePathStatus(savedPath);
+            } else {
+                input.value = '';
+                updateTemplatePathStatus('default');
+            }
+            
+            // Populate dropdown with history
+            const dropdown = document.getElementById('template-path-history');
+            dropdown.innerHTML = '<option value="">-- Select from recent paths --</option>';
+            dropdown.innerHTML += '<option value="default">🔄 Use Default</option>';
+            
+            if (pathHistory.length > 0) {
+                dropdown.innerHTML += '<option disabled>──────────────</option>';
+                pathHistory.forEach(path => {
+                    const displayPath = path.length > 50 ? '...' + path.slice(-50) : path;
+                    dropdown.innerHTML += `<option value="${path}" title="${path}">${displayPath}</option>`;
+                });
+            }
+        }
+        
+        function selectTemplateFromHistory() {
+            const dropdown = document.getElementById('template-path-history');
+            const selectedPath = dropdown.value;
+            const input = document.getElementById('custom-template-path');
+            
+            if (selectedPath === 'default') {
+                clearTemplatePath();
+            } else if (selectedPath) {
+                input.value = selectedPath;
+            }
+            
+            // Reset dropdown to placeholder
+            dropdown.selectedIndex = 0;
+        }
+        
+        function clearTemplatePath() {
+            const input = document.getElementById('custom-template-path');
+            input.value = '';
+            
+            // Save 'default' to localStorage
+            localStorage.setItem('customTemplatePath', 'default');
+            updateTemplatePathStatus('default');
+        }
+        
+        function saveTemplatePath(path) {
+            if (!path || path.trim() === '') {
+                localStorage.setItem('customTemplatePath', 'default');
+                updateTemplatePathStatus('default');
+                return;
+            }
+            
+            // Save current path
+            localStorage.setItem('customTemplatePath', path);
+            
+            // Update history (avoid duplicates)
+            let history = JSON.parse(localStorage.getItem('templatePathHistory') || '[]');
+            history = history.filter(p => p !== path);  // Remove if exists
+            history.unshift(path);  // Add to front
+            
+            // Keep only last MAX_PATH_HISTORY paths
+            if (history.length > MAX_PATH_HISTORY) {
+                history = history.slice(0, MAX_PATH_HISTORY);
+            }
+            
+            localStorage.setItem('templatePathHistory', JSON.stringify(history));
+            updateTemplatePathStatus(path);
+            
+            // Reload dropdown
+            loadTemplatePathHistory();
+        }
+        
+        function updateTemplatePathStatus(path) {
+            const statusSpan = document.getElementById('template-path-status');
+            if (path === 'default' || !path) {
+                statusSpan.innerHTML = '<span style="color: #666;">Using default template</span>';
+            } else {
+                const displayPath = path.length > 60 ? '...' + path.slice(-60) : path;
+                statusSpan.innerHTML = `<code style="background: #e8f5e9; padding: 2px 6px; border-radius: 3px; color: #2e7d32;">${displayPath}</code>`;
+            }
+        }
+        
+        // ========================================
+        // Status Labels
+        // ========================================
+        
+        // Get user-friendly status labels
+        function getStatusLabel(state) {
+            const labels = {
+                'submitted': 'Submitted',
+                'running': 'Running',
+                'completed': 'Completed (Pending Extraction)',
+                'extracting': 'Extracting Results',
+                'sorting': 'Sorting Data',
+                'backing_up': 'Creating Backup',
+                'finished': 'Finished (Extracted)',
+                'failed': 'Failed'
+            };
+            return labels[state] || state;
+        }
+        
+        // Format voltage domain for display
+        function formatVoltageDomain(voltage_domain) {
+            if (!voltage_domain) return 'N/A';
+            
+            const voltageMap = {
+                '0p9v': { voltage: 0.9, label: '0.9V (Low-Power)' },
+                '1p1v': { voltage: 1.1, label: '1.1V (Standard I/O)' },
+                '1p8v': { voltage: 1.8, label: '1.8V (High-Voltage)' },
+                '2p5v': { voltage: 2.5, label: '2.5V (Mid-Voltage)' },
+                '3p3v': { voltage: 3.3, label: '3.3V (Legacy)' }
+            };
+            
+            if (voltageMap[voltage_domain]) {
+                return `${voltage_domain} (${voltageMap[voltage_domain].voltage}V)`;
+            }
+            
+            return voltage_domain;
+        }
+        
+        // Timezone functions defined below formatTimestamp
+        
+        // Format timestamp with user's timezone
+        function formatTimestamp(isoString) {
+            if (!isoString) return 'N/A';
+            
+            // Ensure timestamp is treated as UTC by adding 'Z' if missing
+            let utcString = isoString;
+            if (!utcString.endsWith('Z') && !utcString.includes('+') && !utcString.includes('T')) {
+                // SQLite timestamp format: "2025-10-21 03:22:03" -> "2025-10-21T03:22:03Z"
+                utcString = utcString.replace(' ', 'T') + 'Z';
+            } else if (!utcString.endsWith('Z') && utcString.includes('T') && !utcString.includes('+')) {
+                // ISO format without Z: "2025-10-21T03:22:03" -> "2025-10-21T03:22:03Z"
+                utcString = utcString + 'Z';
+            }
+            
+            const date = new Date(utcString);
+            
+            if (userTimezone === 'local') {
+                // Use browser's local timezone
+                return date.toLocaleString() + ' (Local)';
+            } else {
+                // Use selected timezone
+                try {
+                    const formatted = date.toLocaleString('en-US', {
+                        timeZone: userTimezone,
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    });
+                    // Get timezone abbreviation
+                    const tzName = new Intl.DateTimeFormat('en-US', {
+                        timeZone: userTimezone,
+                        timeZoneName: 'short'
+                    }).formatToParts(date).find(part => part.type === 'timeZoneName')?.value || userTimezone;
+                    
+                    return formatted + ' (' + tzName + ')';
+                } catch (e) {
+                    console.error('Error formatting timezone:', e);
+                    return date.toLocaleString() + ' (Local)';
+                }
+            }
+        }
+        
+        // Comprehensive Timezone Data (alphabetically by city, following NN/g best practices)
+        const TIMEZONES = [
+            { id: 'local', city: 'Auto-Detect', country: 'System', offset: 'Auto' },
+            { id: 'UTC', city: 'UTC', country: 'Universal', offset: '+00:00' },
+            // Africa
+            { id: 'Africa/Cairo', city: 'Cairo', country: 'Egypt', offset: '+02:00' },
+            { id: 'Africa/Johannesburg', city: 'Johannesburg', country: 'South Africa', offset: '+02:00' },
+            { id: 'Africa/Lagos', city: 'Lagos', country: 'Nigeria', offset: '+01:00' },
+            { id: 'Africa/Nairobi', city: 'Nairobi', country: 'Kenya', offset: '+03:00' },
+            // Americas
+            { id: 'America/Anchorage', city: 'Anchorage', country: 'USA', offset: '-09:00' },
+            { id: 'America/Chicago', city: 'Chicago', country: 'USA', offset: '-06:00' },
+            { id: 'America/Denver', city: 'Denver', country: 'USA', offset: '-07:00' },
+            { id: 'America/Los_Angeles', city: 'Los Angeles', country: 'USA', offset: '-08:00' },
+            { id: 'America/Mexico_City', city: 'Mexico City', country: 'Mexico', offset: '-06:00' },
+            { id: 'America/New_York', city: 'New York', country: 'USA', offset: '-05:00' },
+            { id: 'America/Phoenix', city: 'Phoenix', country: 'USA', offset: '-07:00' },
+            { id: 'America/Sao_Paulo', city: 'São Paulo', country: 'Brazil', offset: '-03:00' },
+            { id: 'America/Toronto', city: 'Toronto', country: 'Canada', offset: '-05:00' },
+            { id: 'America/Vancouver', city: 'Vancouver', country: 'Canada', offset: '-08:00' },
+            // Asia
+            { id: 'Asia/Bangkok', city: 'Bangkok', country: 'Thailand', offset: '+07:00' },
+            { id: 'Asia/Dubai', city: 'Dubai', country: 'UAE', offset: '+04:00' },
+            { id: 'Asia/Hong_Kong', city: 'Hong Kong', country: 'China', offset: '+08:00' },
+            { id: 'Asia/Jakarta', city: 'Jakarta', country: 'Indonesia', offset: '+07:00' },
+            { id: 'Asia/Jerusalem', city: 'Jerusalem', country: 'Israel', offset: '+02:00' },
+            { id: 'Asia/Kolkata', city: 'Kolkata', country: 'India', offset: '+05:30' },
+            { id: 'Asia/Kuala_Lumpur', city: 'Kuala Lumpur', country: 'Malaysia', offset: '+08:00' },
+            { id: 'Asia/Manila', city: 'Manila', country: 'Philippines', offset: '+08:00' },
+            { id: 'Asia/Seoul', city: 'Seoul', country: 'South Korea', offset: '+09:00' },
+            { id: 'Asia/Shanghai', city: 'Shanghai', country: 'China', offset: '+08:00' },
+            { id: 'Asia/Singapore', city: 'Singapore', country: 'Singapore', offset: '+08:00' },
+            { id: 'Asia/Taipei', city: 'Taipei', country: 'Taiwan', offset: '+08:00' },
+            { id: 'Asia/Tokyo', city: 'Tokyo', country: 'Japan', offset: '+09:00' },
+            // Europe
+            { id: 'Europe/Amsterdam', city: 'Amsterdam', country: 'Netherlands', offset: '+01:00' },
+            { id: 'Europe/Athens', city: 'Athens', country: 'Greece', offset: '+02:00' },
+            { id: 'Europe/Berlin', city: 'Berlin', country: 'Germany', offset: '+01:00' },
+            { id: 'Europe/Brussels', city: 'Brussels', country: 'Belgium', offset: '+01:00' },
+            { id: 'Europe/Dublin', city: 'Dublin', country: 'Ireland', offset: '+00:00' },
+            { id: 'Europe/Istanbul', city: 'Istanbul', country: 'Turkey', offset: '+03:00' },
+            { id: 'Europe/London', city: 'London', country: 'UK', offset: '+00:00' },
+            { id: 'Europe/Madrid', city: 'Madrid', country: 'Spain', offset: '+01:00' },
+            { id: 'Europe/Moscow', city: 'Moscow', country: 'Russia', offset: '+03:00' },
+            { id: 'Europe/Paris', city: 'Paris', country: 'France', offset: '+01:00' },
+            { id: 'Europe/Rome', city: 'Rome', country: 'Italy', offset: '+01:00' },
+            { id: 'Europe/Stockholm', city: 'Stockholm', country: 'Sweden', offset: '+01:00' },
+            { id: 'Europe/Zurich', city: 'Zurich', country: 'Switzerland', offset: '+01:00' },
+            // Oceania
+            { id: 'Australia/Melbourne', city: 'Melbourne', country: 'Australia', offset: '+10:00' },
+            { id: 'Australia/Perth', city: 'Perth', country: 'Australia', offset: '+08:00' },
+            { id: 'Australia/Sydney', city: 'Sydney', country: 'Australia', offset: '+10:00' },
+            { id: 'Pacific/Auckland', city: 'Auckland', country: 'New Zealand', offset: '+12:00' },
+            { id: 'Pacific/Honolulu', city: 'Honolulu', country: 'USA', offset: '-10:00' }
+        ];
+        
+        let allTimezones = [...TIMEZONES];
+        
+        function toggleTimezoneModal() {
+            const modal = document.getElementById('timezone-modal');
+            modal.classList.add('show');
+            renderTimezones(allTimezones);
+            
+            // Focus search box
+            setTimeout(() => {
+                document.getElementById('timezone-search').focus();
+            }, 100);
+        }
+        
+        function closeTimezoneModal() {
+            const modal = document.getElementById('timezone-modal');
+            modal.classList.remove('show');
+            document.getElementById('timezone-search').value = '';
+        }
+        
+        function renderTimezones(timezones) {
+            const listDiv = document.getElementById('timezone-list');
+            
+            if (timezones.length === 0) {
+                listDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No timezones found matching your search.</div>';
+                return;
+            }
+            
+            let html = '';
+            timezones.forEach(tz => {
+                const isSelected = userTimezone === tz.id;
+                const selectedClass = isSelected ? 'selected' : '';
+                
+                html += `
+                    <div class="timezone-item ${selectedClass}" onclick="selectTimezone('${tz.id}', '${tz.city}', '${tz.country}', '${tz.offset}')">
+                        <div>
+                            <span class="timezone-name">${tz.city}, ${tz.country}</span>
+                            <span class="timezone-offset">(GMT${tz.offset})</span>
+                        </div>
+                        ${isSelected ? '<span style="color: #1976d2;">✓</span>' : ''}
+                    </div>
+                `;
+            });
+            
+            listDiv.innerHTML = html;
+        }
+        
+        function filterTimezones() {
+            const query = document.getElementById('timezone-search').value.toLowerCase().trim();
+            
+            if (!query) {
+                renderTimezones(allTimezones);
+                return;
+            }
+            
+            const filtered = allTimezones.filter(tz => {
+                return tz.city.toLowerCase().includes(query) ||
+                       tz.country.toLowerCase().includes(query) ||
+                       tz.id.toLowerCase().includes(query) ||
+                       tz.offset.includes(query);
+            });
+            
+            renderTimezones(filtered);
+        }
+        
+        function selectTimezone(tzId, city, country, offset) {
+            userTimezone = tzId;
+            localStorage.setItem('userTimezone', userTimezone);
+            
+            // Update display
+            let displayText;
+            if (tzId === 'local') {
+                displayText = 'Local (Auto)';
+            } else if (tzId === 'UTC') {
+                displayText = 'UTC';
+            } else {
+                displayText = `${city} (GMT${offset})`;
+            }
+            document.getElementById('timezone-display').textContent = displayText;
+            
+            console.log('Timezone changed to:', userTimezone);
+            
+            // Close modal and reload
+            closeTimezoneModal();
+            loadSimulations();
+        }
+        
+        // Update loadTimezonePreference to set display text
+        function loadTimezonePreference() {
+            const saved = localStorage.getItem('userTimezone');
+            if (saved) {
+                userTimezone = saved;
+                const tz = TIMEZONES.find(t => t.id === saved);
+                if (tz) {
+                    let displayText;
+                    if (tz.id === 'local') {
+                        displayText = 'Local (Auto)';
+                    } else if (tz.id === 'UTC') {
+                        displayText = 'UTC';
+                    } else {
+                        displayText = `${tz.city} (GMT${tz.offset})`;
+                    }
+                    document.getElementById('timezone-display').textContent = displayText;
+                }
+            } else {
+                // Detect and show user's local timezone
+                const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                console.log('Detected timezone:', detected);
+                userTimezone = 'local';
+                document.getElementById('timezone-display').textContent = 'Local (Auto)';
+            }
+        }
+        
+        // WebSocket Connection Management
+        function connectWebSocket() {
+            const wsUrl = 'ws://localhost:5000/ws/simulation';
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    console.log('✅ WebSocket connected');
+                    reconnectAttempts = 0;
+                    updateWSStatus('connected', 'Live Updates Active');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        handleWSMessage(msg);
+                    } catch (error) {
+                        console.error('WebSocket message parse error:', error);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('❌ WebSocket error:', error);
+                    updateWSStatus('disconnected', 'Connection Error');
+                };
+                
+                ws.onclose = () => {
+                    console.log('🔌 WebSocket disconnected');
+                    updateWSStatus('connecting', 'Reconnecting...');
+                    
+                    // Auto-reconnect with exponential backoff
+                    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+                        reconnectAttempts++;
+                        console.log('Reconnecting in ' + delay + 'ms (attempt ' + reconnectAttempts + ')');
+                        setTimeout(connectWebSocket, delay);
+                    } else {
+                        updateWSStatus('disconnected', 'Connection Lost');
+                    }
+                };
+                
+            } catch (error) {
+                console.error('WebSocket connection failed:', error);
+                updateWSStatus('disconnected', 'Failed to Connect');
+            }
+        }
+        
+        function updateWSStatus(status, text) {
+            const statusDiv = document.getElementById('ws-status');
+            const statusText = document.getElementById('ws-status-text');
+            
+            statusDiv.className = 'ws-status ws-' + status;
+            statusText.textContent = text;
+        }
+        
+        function handleWSMessage(msg) {
+            console.log('📨 WebSocket message:', msg);
+            
+            if (msg.type === 'connected') {
+                console.log('Server says:', msg.message);
+            }
+            else if (msg.type === 'pong') {
+                console.log('🏓 Pong received');
+            }
+            else if (msg.type === 'simulation_update') {
+                console.log('📊 Simulation update:', msg.sim_id, msg.data);
+                updateSimulationInUI(msg.sim_id, msg.data);
+                
+                // Update status modal if it's open for this simulation
+                if (currentStatusModalSimId === msg.sim_id) {
+                    updateStatusModalRealtime(msg.data);
+                }
+                
+                // If state changed to extracting/sorting/backing_up, show notification
+                if (msg.data.state && ['extracting', 'sorting', 'backing_up', 'finished'].indexOf(msg.data.state) !== -1) {
+                    console.log('🔄 Extraction progress:', msg.data.state, msg.data.message);
+                }
+            }
+        }
+        
+        function updateSimulationInUI(sim_id, data) {
+            // Find the simulation in the list and update it
+            const simElements = document.querySelectorAll('.simulation-item');
+            simElements.forEach(el => {
+                const idElement = el.querySelector('.sim-id');
+                if (idElement && idElement.textContent === sim_id) {
+                    // Update progress bar
+                    const progressFill = el.querySelector('.progress-fill');
+                    if (progressFill && data.progress_pct !== undefined) {
+                        progressFill.style.width = data.progress_pct + '%';
+                        progressFill.textContent = data.progress_pct.toFixed(1) + '%';
+                    }
+                    
+                    // Update status badge
+                    const badge = el.querySelector('.status-badge');
+                    if (badge && data.state) {
+                        badge.className = 'status-badge status-' + data.state;
+                        badge.textContent = data.state;
+                    }
+                    
+                    // Update/add extraction progress indicator
+                    if (data.extraction_stage && data.message) {
+                        let extractionDiv = el.querySelector('.extraction-progress');
+                        if (!extractionDiv) {
+                            extractionDiv = document.createElement('div');
+                            extractionDiv.className = 'extraction-progress';
+                            const progressBar = el.querySelector('.progress-bar');
+                            if (progressBar) {
+                                progressBar.parentNode.insertBefore(extractionDiv, progressBar);
+                            }
+                        }
+                        extractionDiv.innerHTML = 
+                            '<div class="extraction-stage">📦 ' + data.extraction_stage.toUpperCase() + '</div>' +
+                            '<div class="extraction-message">' + data.message + '</div>';
+                        
+                        // Remove extraction indicator when finished
+                        if (data.state === 'finished') {
+                            setTimeout(() => {
+                                if (extractionDiv.parentNode) {
+                                    extractionDiv.parentNode.removeChild(extractionDiv);
+                                }
+                            }, 3000);
+                        }
+                    }
+                    
+                    // Update job stats if they exist
+                    const jobStats = el.querySelector('.job-stats');
+                    if (jobStats) {
+                        const completed = jobStats.querySelector('[data-stat="completed"]');
+                        const running = jobStats.querySelector('[data-stat="running"]');
+                        const waiting = jobStats.querySelector('[data-stat="waiting"]');
+                        const errors = jobStats.querySelector('[data-stat="errors"]');
+                        
+                        if (completed && data.jobs_completed !== undefined) {
+                            completed.textContent = data.jobs_completed;
+                        }
+                        if (running && data.jobs_running !== undefined) {
+                            running.textContent = data.jobs_running;
+                        }
+                        if (waiting && data.jobs_waiting !== undefined) {
+                            waiting.textContent = data.jobs_waiting;
+                        }
+                        if (errors && data.jobs_errors !== undefined) {
+                            errors.textContent = data.jobs_errors;
+                        }
+                    }
+                    
+                    // Add visual feedback for update
+                    el.style.transition = 'border-color 0.3s';
+                    el.style.borderColor = '#667eea';
+                    setTimeout(() => {
+                        el.style.borderColor = '#e0e0e0';
+                    }, 1000);
+                }
+            });
+        }
+        
+        // Load user info on page load
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('http://localhost:5000/');
+                const data = await response.json();
+                currentUser = data.user;
+                const userElement = document.getElementById('current-user');
+                if (userElement) {
+                    userElement.textContent = currentUser;
+                }
+            } catch (error) {
+                const userElement = document.getElementById('current-user');
+                if (userElement) {
+                    userElement.textContent = 'Unknown';
+                }
+            }
+        }
+        
+        // Submit simulation
+        document.getElementById('submit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const statusDiv = document.getElementById('submit-status');
+            
+            // Validate voltage input
+            const voltageInput = document.getElementById('voltage-input');
+            const domainId = voltageInput.dataset.domainId;
+            
+            if (!currentValidation.valid || !domainId) {
+                statusDiv.innerHTML = '<div class="error">❌ Please enter a valid voltage value</div>';
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Submitting...';
+            statusDiv.innerHTML = '';
+            
+            const formData = {
+                project: document.getElementById('project').value,
+                voltage_domain: domainId,  // Use validated domain ID
+                nb_cores: parseInt(document.getElementById('nb-cores').value),
+                nb_memory: parseInt(document.getElementById('nb-memory').value)
+            };
+            
+            // Get corner set data (handles both preset and custom)
+            try {
+                const cornerData = getSelectedCorners();
+                Object.assign(formData, cornerData);
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ ${error.message}</div>`;
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Submit Simulation';
+                return;
+            }
+            
+            // Save NetBatch resources to localStorage for persistence
+            saveNetBatchResources(formData.nb_cores, formData.nb_memory);
+            
+            // Add custom template path if specified
+            const customPath = document.getElementById('custom-template-path').value.trim();
+            if (customPath) {
+                formData.custom_template_path = customPath;
+                // Save to localStorage for persistence
+                saveTemplatePath(customPath);
+            } else {
+                // User chose default - save as 'default'
+                saveTemplatePath('');
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/submit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Simulation submitted successfully!<br>
+                            <strong>ID:</strong> ${data.sim_id}<br>
+                            <strong>Work Dir:</strong> ${data.work_dir}<br>
+                            <strong>Message:</strong> ${data.message}
+                        </div>
+                    `;
+                    loadSimulations();
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Submission failed: ${data.detail || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Error: ${error.message}
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Submit Simulation';
+            }
+        });
+        
+        // View detailed status in modal
+        // Global variable to track currently open status modal
+        let currentStatusModalSimId = null;
+        
+        async function viewStatus(sim_id) {
+            const modal = document.getElementById('status-modal');
+            const content = document.getElementById('status-modal-content');
+            
+            // Store the sim_id for real-time updates
+            currentStatusModalSimId = sim_id;
+            
+            // Show modal with loading message
+            content.innerHTML = '<div style="text-align: center; padding: 40px;">Loading status...</div>';
+            modal.classList.add('show');
+            
+            // Load and display status
+            await updateStatusModalContent(sim_id);
+        }
+        
+        async function updateStatusModalContent(sim_id) {
+            const content = document.getElementById('status-modal-content');
+            
+            try {
+                const response = await fetch(`${API_BASE}/status/${sim_id}`);
+                const data = await response.json();
+                console.log('Status:', data);
+                
+                // Build detailed status view
+                const statusHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #333; margin-bottom: 10px;">Simulation ID: ${sim_id}</h3>
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 6px;">
+                            <div style="margin-bottom: 10px;"><strong>State:</strong> <span class="status-badge status-${data.state}">${getStatusLabel(data.state)}</span></div>
+                            <div style="margin-bottom: 10px;"><strong>Progress:</strong> <span id="modal-progress">${data.progress_pct}%</span></div>
+                            <div style="margin-bottom: 10px;"><strong>Project:</strong> ${data.project || 'N/A'}</div>
+                            <div style="margin-bottom: 10px;"><strong>Voltage Domain:</strong> ${formatVoltageDomain(data.voltage_domain)}</div>
+                            <div style="margin-bottom: 10px;"><strong>Corners:</strong> ${data.custom_corners ? JSON.parse(data.custom_corners).join(', ') : 'N/A'}</div>
+                            <div style="margin-bottom: 10px;">
+                                <strong>Temperatures:</strong>
+                                ${(() => {
+                                    const temps = (data.temperature_list || '').split(',').map(t => t.trim());
+                                    return temps.filter(t => t).map(t => 
+                                        `<span style="background: #fff3e0; color: #e65100; padding: 2px 8px; margin: 2px; display: inline-block; border-radius: 3px; font-weight: 600;">${t}°C</span>`
+                                    ).join(' ');
+                                })()}
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <strong>Voltage Combinations:</strong>
+                                ${(() => {
+                                    let html = '';
+                                    try {
+                                        const voltageData = typeof data.voltage_sweep === 'string' 
+                                            ? JSON.parse(data.voltage_sweep) 
+                                            : data.voltage_sweep;
+                                        
+                                        const temps = (data.temperature_list || '').split(',').map(t => t.trim()).filter(t => t);
+                                        
+                                        if (voltageData && typeof voltageData === 'object' && Object.keys(voltageData).length > 0 && temps.length > 0) {
+                                            html = '<div style="margin-top: 8px;">';
+                                            temps.forEach(temp => {
+                                                const tempKey = `temp_${temp}_voltages`;
+                                                if (voltageData[tempKey]) {
+                                                    const voltages = voltageData[tempKey].split(',').map(v => v.trim()).filter(v => v);
+                                                    const voltageList = voltages.map(v => 
+                                                        `<code style="background: #e3f2fd; padding: 2px 6px; margin: 2px; display: inline-block; border-radius: 3px; font-size: 11px;">${v}</code>`
+                                                    ).join(' ');
+                                                    
+                                                    html += `
+                                                        <div style="margin-bottom: 8px; padding: 8px; background: #fafafa; border-left: 3px solid #2196f3; border-radius: 4px;">
+                                                            <strong style="color: #1565c0;">${temp}°C:</strong>
+                                                            <div style="margin-top: 4px;">${voltageList}</div>
+                                                            <small style="color: #666;">(${voltages.length} combination${voltages.length !== 1 ? 's' : ''})</small>
+                                                        </div>
+                                                    `;
+                                                }
+                                            });
+                                            html += '</div>';
+                                        } else {
+                                            html = '<span style="color: #999; font-style: italic;">No voltage data available</span>';
+                                        }
+                                    } catch (e) {
+                                        console.error('Error parsing voltage_sweep:', e);
+                                        html = `<span style="background: ${data.voltage_sweep === 'on' ? '#e8f5e9' : '#fff3e0'}; color: ${data.voltage_sweep === 'on' ? '#2e7d32' : '#e65100'}; padding: 2px 8px; border-radius: 3px; font-weight: 600;">
+                                            ${data.voltage_sweep === 'on' ? '⚡ ON' : '⚠️ OFF'}
+                                        </span>`;
+                                    }
+                                    return html;
+                                })()}
+                            </div>
+                            <div style="margin-bottom: 10px;"><strong>Resources:</strong> 
+                                <span style="background: #e3f2fd; padding: 2px 8px; border-radius: 3px; margin-right: 8px;">
+                                    🖥️ ${data.nb_cores || 2} Cores
+                                </span>
+                                <span style="background: #e8f5e9; padding: 2px 8px; border-radius: 3px;">
+                                    💾 ${data.nb_memory || 2} GB
+                                </span>
+                            </div>
+                            <div style="margin-bottom: 10px;"><strong>Work Directory:</strong> <code style="background: #e0e0e0; padding: 2px 6px; border-radius: 3px; font-size: 12px;">${data.work_dir || 'N/A'}</code></div>
+                            <div><strong>Created:</strong> ${formatTimestamp(data.created_at)}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #333; margin-bottom: 10px;">Job Statistics</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                            <div style="background: #e8f5e9; padding: 15px; border-radius: 6px; border-left: 4px solid #4caf50;">
+                                <div style="font-size: 24px; font-weight: bold; color: #2e7d32;" id="modal-jobs-completed">${data.jobs_completed || 0}</div>
+                                <div style="color: #666; font-size: 12px;">Completed Jobs</div>
+                            </div>
+                            <div style="background: #fff3e0; padding: 15px; border-radius: 6px; border-left: 4px solid #ff9800;">
+                                <div style="font-size: 24px; font-weight: bold; color: #e65100;" id="modal-jobs-running">${data.jobs_running || 0}</div>
+                                <div style="color: #666; font-size: 12px;">Running Jobs</div>
+                            </div>
+                            <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; border-left: 4px solid #2196f3;">
+                                <div style="font-size: 24px; font-weight: bold; color: #1565c0;" id="modal-jobs-waiting">${data.jobs_waiting || 0}</div>
+                                <div style="color: #666; font-size: 12px;">Waiting Jobs</div>
+                            </div>
+                            <div style="background: #ffebee; padding: 15px; border-radius: 6px; border-left: 4px solid #f44336;">
+                                <div style="font-size: 24px; font-weight: bold; color: #c62828;" id="modal-jobs-errors">${data.jobs_errors || 0}</div>
+                                <div style="color: #666; font-size: 12px;">Failed Jobs</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #333; margin-bottom: 10px;">Progress</h3>
+                        <div class="progress-bar" style="height: 30px; border-radius: 15px;">
+                            <div class="progress-fill" id="modal-progress-bar" style="width: ${data.progress_pct}%; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                                ${data.progress_pct.toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${data.netbatch_job_ids ? `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #333; margin-bottom: 10px;">NetBatch Job IDs</h3>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 6px; max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 11px;">
+                            ${JSON.parse(data.netbatch_job_ids).join('<br>')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${data.backup_dir ? `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: #333; margin-bottom: 10px;">Backup Location</h3>
+                        <code style="background: #e0e0e0; padding: 8px; border-radius: 4px; display: block; font-size: 12px;">${data.backup_dir}</code>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                        <strong>Total Jobs:</strong> ${data.total_jobs || 0}
+                    </div>
+                `;
+                
+                content.innerHTML = statusHTML;
+            } catch (error) {
+                console.error('Error fetching status:', error);
+                content.innerHTML = `<div class="error">Error loading status: ${error.message}</div>`;
+            }
+        }
+        
+        function closeStatusModal() {
+            document.getElementById('status-modal').classList.remove('show');
+            // Clear the tracking variable when modal closes
+            currentStatusModalSimId = null;
+        }
+        
+        function updateStatusModalRealtime(data) {
+            // Update progress percentage
+            const progressText = document.getElementById('modal-progress');
+            if (progressText && data.progress_pct !== undefined) {
+                progressText.textContent = data.progress_pct.toFixed(1) + '%';
+            }
+            
+            // Update progress bar
+            const progressBar = document.getElementById('modal-progress-bar');
+            if (progressBar && data.progress_pct !== undefined) {
+                progressBar.style.width = data.progress_pct + '%';
+                progressBar.textContent = data.progress_pct.toFixed(1) + '%';
+            }
+            
+            // Update job statistics
+            if (data.jobs_completed !== undefined) {
+                const completed = document.getElementById('modal-jobs-completed');
+                if (completed) completed.textContent = data.jobs_completed;
+            }
+            if (data.jobs_running !== undefined) {
+                const running = document.getElementById('modal-jobs-running');
+                if (running) running.textContent = data.jobs_running;
+            }
+            if (data.jobs_waiting !== undefined) {
+                const waiting = document.getElementById('modal-jobs-waiting');
+                if (waiting) waiting.textContent = data.jobs_waiting;
+            }
+            if (data.jobs_errors !== undefined) {
+                const errors = document.getElementById('modal-jobs-errors');
+                if (errors) errors.textContent = data.jobs_errors;
+            }
+            
+            // Update state badge if present
+            if (data.state) {
+                const modal = document.getElementById('status-modal-content');
+                const stateBadge = modal.querySelector('.status-badge');
+                if (stateBadge) {
+                    stateBadge.className = 'status-badge status-' + data.state;
+                    stateBadge.textContent = getStatusLabel(data.state);
+                }
+            }
+        }
+        
+        // View results (Phase 2B)
+        function viewResults(sim_id) {
+            window.location.href = `/frontend/results.html?sim_id=${sim_id}`;
+        }
+        
+        // Trigger extraction
+        async function triggerExtraction(sim_id) {
+            if (!confirm('Trigger extraction for ' + sim_id + '?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/extract/${sim_id}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Extraction started!\n\n' + data.message);
+                    loadSimulations();
+                } else {
+                    alert('❌ Extraction failed:\n\n' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        // ========================================
+        // Search and Filter Functions
+        // ========================================
+        
+        let allSimulations = [];  // Store all simulations for filtering
+        
+        // Save all simulations when loaded
+        async function loadSimulations(showOverlay = false) {
+            const listDiv = document.getElementById('simulations-list');
+            const overlay = document.getElementById('refresh-overlay');
+            
+            // Show overlay instead of replacing content (less flickery)
+            if (showOverlay) {
+                overlay.classList.add('show');
+            } else {
+                listDiv.innerHTML = '<div class="loading">Loading simulations...</div>';
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/simulations`);
+                const data = await response.json();
+                
+                allSimulations = data.simulations;  // Store for filtering
+                
+                if (allSimulations.length === 0) {
+                    listDiv.innerHTML = '<p style="text-align:center;color:#666;">No simulations yet. Submit one above!</p>';
+                    return;
+                }
+                
+                // Apply current filters
+                filterSimulations();
+            } catch (error) {
+                listDiv.innerHTML = `<div class="error">Error loading simulations: ${error.message}</div>`;
+            } finally {
+                // Hide overlay
+                if (showOverlay) {
+                    setTimeout(() => {
+                        overlay.classList.remove('show');
+                    }, 500);
+                }
+            }
+        }
+        
+        function filterSimulations() {
+            const listDiv = document.getElementById('simulations-list');
+            const statusDiv = document.getElementById('filter-status');
+            
+            // Get filter values
+            const searchQuery = document.getElementById('search-box').value.toLowerCase();
+            const stateFilter = document.getElementById('filter-state').value;
+            const projectFilter = document.getElementById('filter-project').value;
+            
+            // Apply filters
+            const filtered = allSimulations.filter(sim => {
+                // Search filter (search in sim_id, project, state, corner_set, voltage_domain, username, netbatch_job_ids)
+                const matchesSearch = !searchQuery || 
+                    sim.sim_id.toLowerCase().includes(searchQuery) ||
+                    sim.project.toLowerCase().includes(searchQuery) ||
+                    sim.state.toLowerCase().includes(searchQuery) ||
+                    sim.corner_set.toLowerCase().includes(searchQuery) ||
+                    (sim.voltage_domain && sim.voltage_domain.toLowerCase().includes(searchQuery)) ||
+                    (sim.username && sim.username.toLowerCase().includes(searchQuery)) ||
+                    (sim.netbatch_job_ids && JSON.stringify(sim.netbatch_job_ids).toLowerCase().includes(searchQuery));
+                
+                // State filter
+                const matchesState = stateFilter === 'all' || sim.state === stateFilter;
+                
+                // Project filter
+                const matchesProject = projectFilter === 'all' || sim.project === projectFilter;
+                
+                return matchesSearch && matchesState && matchesProject;
+            });
+            
+            // Update status message
+            if (filtered.length < allSimulations.length) {
+                statusDiv.textContent = `Showing ${filtered.length} of ${allSimulations.length} simulations`;
+                statusDiv.style.fontWeight = '600';
+            } else {
+                statusDiv.textContent = '';
+            }
+            
+            // Render filtered results
+            if (filtered.length === 0) {
+                listDiv.innerHTML = '<p style="text-align:center;color:#666;">No simulations match your filters.</p>';
+                return;
+            }
+            
+            listDiv.innerHTML = filtered.map(sim => `
+                <div class="simulation-item">
+                    <div class="sim-header">
+                        <div class="sim-id">${sim.sim_id}</div>
+                        <span class="status-badge status-${sim.state}" title="${getStatusLabel(sim.state)}">${getStatusLabel(sim.state)}</span>
+                    </div>
+                    <div class="sim-details">
+                        📁 ${sim.project}/${sim.voltage_domain} | 
+                        🎯 Corners: ${sim.custom_corners ? JSON.parse(sim.custom_corners).join(', ') : 'N/A'} | 
+                        🌡️ Temps: ${sim.temperature_list || 'N/A'} | 
+                        ⚡ Sweep: ${sim.voltage_sweep === 'on' ? 'ON' : 'OFF'} | 
+                        📅 ${formatTimestamp(sim.created_at)}
+                    </div>
+                    ${sim.state === 'running' || sim.state === 'submitted' ? `
+                    <div class="job-stats">
+                        <div class="job-stat stat-completed">
+                            <div class="job-stat-label">Completed</div>
+                            <div class="job-stat-value" data-stat="completed">${sim.jobs_completed || 0}</div>
+                        </div>
+                        <div class="job-stat stat-running">
+                            <div class="job-stat-label">Running</div>
+                            <div class="job-stat-value" data-stat="running">${sim.jobs_running || 0}</div>
+                        </div>
+                        <div class="job-stat stat-waiting">
+                            <div class="job-stat-label">Waiting</div>
+                            <div class="job-stat-value" data-stat="waiting">${sim.jobs_waiting || 0}</div>
+                        </div>
+                        <div class="job-stat stat-errors">
+                            <div class="job-stat-label">Errors</div>
+                            <div class="job-stat-value" data-stat="errors">${sim.jobs_errors || 0}</div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${sim.progress_pct}%">
+                            ${sim.progress_pct.toFixed(1)}%
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button onclick="viewStatus('${sim.sim_id}')" style="padding: 8px 16px; font-size: 14px;">
+                            📊 View Status
+                        </button>
+                        ${sim.state === 'completed' ? `
+                        <button onclick="triggerExtraction('${sim.sim_id}')" style="padding: 8px 16px; font-size: 14px; background: #2e7d32;">
+                            📦 Manual Extract
+                        </button>
+                        ` : ''}
+                        ${sim.state === 'finished' ? `
+                        <button onclick="viewResults('${sim.sim_id}')" style="padding: 8px 16px; font-size: 14px; background: #1976d2;">
+                            📊 View Results
+                        </button>
+                        ` : ''}
+                    </div>
+                    ${sim.state === 'finished' ? `
+                    <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 4px; font-size: 14px;">
+                        ✅ <strong>Results ready!</strong> Backup: ${sim.backup_dir ? sim.backup_dir.split('/').pop() : 'N/A'}
+                    </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function clearFilters() {
+            document.getElementById('search-box').value = '';
+            document.getElementById('filter-state').value = 'all';
+            document.getElementById('filter-project').value = 'all';
+            filterSimulations();
+        }
+        
+        // Auto-refresh simulations every 10 seconds (reduced frequency with WebSocket)
+        // Use overlay for auto-refresh to prevent flickering
+        setInterval(() => loadSimulations(true), 10000);
+        
+        // Initial load
+        loadTimezonePreference();
+        loadTemplatePathHistory();
+        loadNetBatchResources();
+        setupVoltageInputListeners();  // Setup voltage input validation
+        loadExistingVoltages();  // Load existing voltage domains
+        loadUserInfo();
+        loadSimulations();
+        connectWebSocket();
+        
+        // Send ping every 30 seconds to keep connection alive
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'ping'}));
+            }
+        }, 30000);
+        
+        // ========================================
+        // Spec Limits Configuration
+        // ========================================
+        
+        async function openSpecLimitsModal() {
+            const modal = document.getElementById('spec-limits-modal');
+            modal.classList.add('show');
+            
+            // Load current spec limits
+            try {
+                const response = await fetch('/api/spec-limits');
+                const data = await response.json();
+                
+                // Populate form with current values (custom or defaults)
+                const active = data.active_limits || {};
+                document.getElementById('rwkpull_vih_min').value = active.rwkpull_vih?.min || '';
+                document.getElementById('rwkpull_vih_max').value = active.rwkpull_vih?.max || '';
+                document.getElementById('rwkpull_vil_min').value = active.rwkpull_vil?.min || '';
+                document.getElementById('rwkpull_vil_max').value = active.rwkpull_vil?.max || '';
+                document.getElementById('rwkpulld_vih_min').value = active.rwkpulld_vih?.min || '';
+                document.getElementById('rwkpulld_vih_max').value = active.rwkpulld_vih?.max || '';
+                document.getElementById('rwkpulld_vil_min').value = active.rwkpulld_vil?.min || '';
+                document.getElementById('rwkpulld_vil_max').value = active.rwkpulld_vil?.max || '';
+                
+                // Show status message
+                const statusDiv = document.getElementById('spec-limits-status');
+                if (data.using_custom) {
+                    statusDiv.innerHTML = '<div class="success" style="margin-bottom: 15px;">✅ Using custom spec limits</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="info" style="margin-bottom: 15px; background: #fff3e0; padding: 10px; border-radius: 4px;">ℹ️ Using default spec limits</div>';
+                }
+            } catch (error) {
+                console.error('Error loading spec limits:', error);
+                document.getElementById('spec-limits-status').innerHTML = 
+                    '<div class="error">❌ Error loading spec limits</div>';
+            }
+        }
+        
+        function closeSpecLimitsModal() {
+            const modal = document.getElementById('spec-limits-modal');
+            modal.classList.remove('show');
+        }
+        
+        async function saveSpecLimits() {
+            const statusDiv = document.getElementById('spec-limits-status');
+            const saveBtn = document.getElementById('save-spec-limits-btn');
+            
+            // Collect values from form
+            const specLimits = {
+                rwkpull_vih: {
+                    min: parseFloat(document.getElementById('rwkpull_vih_min').value) || null,
+                    max: parseFloat(document.getElementById('rwkpull_vih_max').value) || null
+                },
+                rwkpull_vil: {
+                    min: parseFloat(document.getElementById('rwkpull_vil_min').value) || null,
+                    max: parseFloat(document.getElementById('rwkpull_vil_max').value) || null
+                },
+                rwkpulld_vih: {
+                    min: parseFloat(document.getElementById('rwkpulld_vih_min').value) || null,
+                    max: parseFloat(document.getElementById('rwkpulld_vih_max').value) || null
+                },
+                rwkpulld_vil: {
+                    min: parseFloat(document.getElementById('rwkpulld_vil_min').value) || null,
+                    max: parseFloat(document.getElementById('rwkpulld_vil_max').value) || null
+                }
+            };
+            
+            // Validate: min must be less than max
+            for (const [param, limits] of Object.entries(specLimits)) {
+                if (limits.min !== null && limits.max !== null && limits.min >= limits.max) {
+                    statusDiv.innerHTML = `<div class="error">❌ Error: ${param} min must be less than max</div>`;
+                    return;
+                }
+            }
+            
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.classList.add('loading');
+            saveBtn.innerHTML = '<span class="spinner"></span> Saving...';
+            
+            // Save to backend
+            try {
+                const response = await fetch('/api/spec-limits', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(specLimits)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="success">✅ Spec limits saved successfully! Closing...</div>';
+                    
+                    // Keep loading state visible, close modal after brief delay
+                    setTimeout(() => {
+                        closeSpecLimitsModal();
+                        loadSimulations(true);
+                        // Reset button state after modal closes
+                        saveBtn.disabled = false;
+                        saveBtn.classList.remove('loading');
+                        saveBtn.innerHTML = '💾 Save Changes';
+                    }, 800);
+                } else {
+                    // Restore button on error
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('loading');
+                    saveBtn.innerHTML = '💾 Save Changes';
+                    statusDiv.innerHTML = `<div class="error">❌ Error: ${data.detail || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                // Restore button on network error
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('loading');
+                saveBtn.innerHTML = '💾 Save Changes';
+                statusDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+        
+        async function resetSpecLimits() {
+            const statusDiv = document.getElementById('spec-limits-status');
+            
+            if (!confirm('Reset to default spec limits? This will delete all custom limits.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/spec-limits', {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = '<div class="success">✅ Reset to default limits successfully!</div>';
+                    
+                    // Clear form fields
+                    document.getElementById('rwkpull_vih_min').value = '';
+                    document.getElementById('rwkpull_vih_max').value = '';
+                    document.getElementById('rwkpull_vil_min').value = '';
+                    document.getElementById('rwkpull_vil_max').value = '';
+                    document.getElementById('rwkpulld_vih_min').value = '';
+                    document.getElementById('rwkpulld_vih_max').value = '';
+                    document.getElementById('rwkpulld_vil_min').value = '';
+                    document.getElementById('rwkpulld_vil_max').value = '';
+                    
+                    // Reload simulations to re-analyze with default limits
+                    setTimeout(() => {
+                        closeSpecLimitsModal();
+                        loadSimulations(true);
+                    }, 1500);
+                } else {
+                    statusDiv.innerHTML = `<div class="error">❌ Error: ${data.detail || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

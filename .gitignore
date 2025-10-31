@@ -320,3 +320,8 @@ development/testing/*.result
 # 3. Use .git/info/exclude for local-only exclusions
 # 4. Review this file periodically as project evolves
 # ============================================================================
+webapp.db
+*.db
+
+# Testing screenshots (large files)
+automation/screenshots/*.png
