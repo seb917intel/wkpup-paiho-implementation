@@ -50,15 +50,22 @@ Frontend JavaScript issue:
 
 ### Task 3: Simplify Frontend to Match Pai Ho's Allowed Configs
 **Priority**: MEDIUM
-**Status**: NOT STARTED
+**Status**: IN PROGRESS
 
 Per ULTIMATE_MASTER_PLAN.md:
-- Remove arbitrary custom temperature selections
-- Remove arbitrary custom voltage combinations
-- Keep only presets that match Pai Ho's CSV tables
-- Add validation against CSV whitelists
+- [x] Add backend API endpoint for CSV validation data (`/api/csv-validation-data`)
+- [x] Backend returns corner presets from table_corner_list.csv
+- [x] Backend returns voltage rails from table_supply_list.csv  
+- [x] Backend returns voltage conditions (func/perf/htol/hvqk)
+- [ ] Update frontend to use dropdown for corner selection (replace checkboxes)
+- [ ] Update frontend to use dropdown for voltage domain selection (replace text input)
+- [ ] Remove arbitrary custom temperature/voltage combinations
+- [ ] Add frontend validation before submission
+- [ ] Test simplified UI end-to-end
 
-**Files**: `automation/frontend/index.html`
+**Files**: 
+- `automation/backend/main_tornado.py` - ✅ API endpoint added
+- `automation/frontend/index.html` - ⏳ In progress
 **Verification**: Frontend only allows configurations in Pai Ho's CSVs
 
 ### Task 4: Update update_config_file() to Use Config Generator

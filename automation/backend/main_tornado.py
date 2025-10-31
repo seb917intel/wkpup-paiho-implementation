@@ -1650,6 +1650,105 @@ class GetSupplyConfigHandler(tornado.web.RequestHandler):
             }
 
 
+class CSVValidationDataHandler(tornado.web.RequestHandler):
+    """
+    Get CSV validation data for frontend (Task 3: Frontend Simplification).
+    
+    Returns corner presets and voltage rails from Pai Ho's CSV tables.
+    """
+    
+    def get(self):
+        """
+        GET /api/csv-validation-data?project=<project>&voltage_domain=<domain>
+        
+        Returns:
+        {
+            "success": true,
+            "corner_presets": [
+                {"id": "nom_tt", "label": "Typical Only (TT)", "corners": ["TT"]},
+                {"id": "cross_default", "label": "Quick (4 corners)", "corners": ["FSG", "SFG", "SSG", "FFG"]},
+                {"id": "full_tt", "label": "Major (7 corners)", "corners": ["TT", "FSG", "SFG", "FFG", "FFAG", "SSG", "SSAG"]},
+                {"id": "full_tt_gsgf", "label": "All (9 corners)", "corners": ["TT", "FSG", "SFG", "FFG", "FFAG", "SSG", "SSAG", "FFG_SSG", "SSG_FFG"]}
+            ],
+            "voltage_rails": ["1p1v", "1p05v", "1p0v", "vcc", ...],
+            "voltage_conditions": ["func", "perf", "htol", "hvqk"]
+        }
+        """
+        try:
+            project = self.get_argument('project', default='gpio')
+            voltage_domain = self.get_argument('voltage_domain', default='1p1v')
+            
+            # Use PaiHoConfigGenerator to load CSV data
+            from config import REPO_ROOT
+            from config_generator import PaiHoConfigGenerator
+            
+            try:
+                generator = PaiHoConfigGenerator(project, voltage_domain, str(REPO_ROOT))
+                
+                # Get corner presets from table_corner_list.csv
+                corner_presets = [
+                    {
+                        "id": "nom_tt",
+                        "label": "Typical Only (TT)",
+                        "corners": ["TT"],
+                        "description": "Single typical corner for quick validation"
+                    },
+                    {
+                        "id": "cross_default",
+                        "label": "Quick (4 corners)",
+                        "corners": ["FSG", "SFG", "SSG", "FFG"],
+                        "description": "Cross corners for basic coverage"
+                    },
+                    {
+                        "id": "full_tt",
+                        "label": "Major (7 corners)",
+                        "corners": ["TT", "FSG", "SFG", "FFG", "FFAG", "SSG", "SSAG"],
+                        "description": "Full corner sweep without global-to-global"
+                    },
+                    {
+                        "id": "full_tt_gsgf",
+                        "label": "All (9 corners)",
+                        "corners": ["TT", "FSG", "SFG", "FFG", "FFAG", "SSG", "SSAG", "FFG_SSG", "SSG_FFG"],
+                        "description": "Complete corner coverage with global-to-global"
+                    }
+                ]
+                
+                # Get valid voltage rails from table_supply_list.csv
+                voltage_rails = generator.get_valid_voltage_rails()
+                
+                # Voltage conditions from CSV columns
+                voltage_conditions = ["func", "perf", "htol", "hvqk"]
+                
+                self.write({
+                    "success": True,
+                    "corner_presets": corner_presets,
+                    "voltage_rails": sorted(voltage_rails),  # Sort alphabetically
+                    "voltage_conditions": voltage_conditions,
+                    "project": project,
+                    "voltage_domain": voltage_domain
+                })
+                
+            except Exception as gen_error:
+                print(f"❌ Config generator error: {gen_error}")
+                import traceback
+                traceback.print_exc()
+                self.set_status(500)
+                self.write({
+                    "success": False,
+                    "error": f"Failed to load CSV validation data: {str(gen_error)}"
+                })
+                
+        except Exception as e:
+            print(f"❌ CSV validation data error: {e}")
+            import traceback
+            traceback.print_exc()
+            self.set_status(500)
+            self.write({
+                "success": False,
+                "error": str(e)
+            })
+
+
 def make_app():
     # Get absolute path to frontend directory
     backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1668,6 +1767,7 @@ def make_app():
         (r"/api/voltage-domains/([^/]+)", VoltageDomainsHandler),  # Voltage domain API
         (r"/api/validate-voltage", ValidateVoltageHandler),  # Voltage validation API
         (r"/api/supply-config", GetSupplyConfigHandler),  # ROOT CAUSE #6 FIX: Supply configuration API
+        (r"/api/csv-validation-data", CSVValidationDataHandler),  # Task 3: CSV validation data for frontend
         (r"/ws/simulation", SimulationWebSocket),  # Phase 2A: WebSocket endpoint
         (r"/frontend/(.*)", tornado.web.StaticFileHandler, {
             "path": frontend_path,
