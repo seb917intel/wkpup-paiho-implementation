@@ -201,27 +201,52 @@ def copy_simulation_files(work_dir: str, project: str, voltage_domain: str, cust
 def update_config_file(work_dir: str, corners: List[str], temperatures: List[str], temp_voltages: Optional[dict] = None,
                       nb_cores: int = 2, nb_memory: int = 2, project: str = 'i3c', voltage_domain: str = '1p1v', voltage_condition: str = 'perf') -> bool:
     """
-    Update config.cfg with selected corners, temperatures, per-temp voltage specs, and NetBatch resources
+    Update config.cfg with validated parameters using PaiHoConfigGenerator
+    
+    REFACTORED: Now validates all inputs against Pai Ho's CSV tables before modification
     
     Args:
         work_dir: Working directory path
-        corners: List of corner names (e.g., ['TT', 'FFG', 'SSG'])
+        corners: List of corner names (must be in table_corner_list.csv)
         temperatures: List of temperatures (e.g., ['-40', '85', '100', '125'])
-        temp_voltages: Dict of per-temp voltage specs (e.g., {'temp_-40_voltages': 'v1min_v2min,v1nom_v2nom', ...})
+        temp_voltages: Dict of per-temp voltage specs
         nb_cores: Number of CPU cores for NetBatch (default: 2)
         nb_memory: Memory in GB for NetBatch (default: 2)
         project: Project name (default: 'i3c')
-        voltage_domain: Voltage domain (default: '1p1v')
-        voltage_condition: Voltage condition (default: 'perf')
+        voltage_domain: Voltage domain (must be in table_supply_list.csv)
+        voltage_condition: Voltage condition (must be func/perf/htol/hvqk)
         
     Returns:
         True if successful
     """
+    from config_generator import PaiHoConfigGenerator
+    
     config_path = os.path.join(work_dir, "config.cfg")
-    sim_pvt_path = os.path.join(work_dir, "sim_pvt_local.sh")
     
     if not os.path.exists(config_path):
-        print(f"❌ config.cfg not found at {config_path}")
+        logger.error(f"❌ config.cfg not found at {config_path}")
+        return False
+    
+    try:
+        # Initialize config generator for CSV validation
+        generator = PaiHoConfigGenerator(project, voltage_domain, REPO_ROOT)
+        
+        # Validate corners against table_corner_list.csv
+        generator.validate_corners(corners)
+        
+        # Validate voltage domain (used as vccn)
+        generator.validate_voltage_rail(voltage_domain)
+        
+        # Validate voltage condition
+        generator.validate_voltage_condition(voltage_condition)
+        
+        logger.info(f"✅ All parameters validated against Pai Ho's CSV tables")
+        
+    except ValueError as e:
+        logger.error(f"❌ CSV validation failed: {e}")
+        return False
+    except Exception as e:
+        logger.exception(f"❌ Error during validation: {e}")
         return False
     
     # Read config

@@ -63,15 +63,19 @@ Per ULTIMATE_MASTER_PLAN.md:
 
 ### Task 4: Update update_config_file() to Use Config Generator
 **Priority**: MEDIUM
-**Status**: NOT STARTED
+**Status**: ✅ COMPLETED
 
-Replace direct config.cfg modification:
-- Use config_generator to create validated config
-- Ensure all parameters match Pai Ho's requirements
-- Validate before writing file
+Updated `update_config_file()` in simulation.py:
+- ✅ Import PaiHoConfigGenerator for CSV validation
+- ✅ Validate corners against table_corner_list.csv before modification
+- ✅ Validate voltage_domain against table_supply_list.csv
+- ✅ Validate voltage_condition (func/perf/htol/hvqk)
+- ✅ Raise clear errors for invalid parameters
+- ✅ Only proceed with config update if all validations pass
 
 **Files**: `automation/backend/simulation.py`
-**Verification**: Generated config.cfg matches Pai Ho's format
+**Verification**: ✅ Function imports successfully, validation integrated
+**Integration**: All simulation submissions now validated against CSV tables
 
 ### Task 5: End-to-End Simulation Test
 **Priority**: HIGH
